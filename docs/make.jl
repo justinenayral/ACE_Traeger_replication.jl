@@ -5,8 +5,7 @@ makedocs(
          sitename = "ACE_Traeger_replication.jl",
          modules  = [ACE_Traeger_replication],
          pages=[
-                "Home" => "index.md",
-                "Damage functions" => "damage.md"
+                "Home" => "index.md"
                ])
 deploydocs(;
     repo="github.com/justinenayral/ACE_Traeger_replication.jl",

@@ -22,24 +22,90 @@ timestep = 10
 #Damage function
 #Define the damage functions
 #For Dice:
+"""
+DICE damage function replace the quadratic damage term ``aT^2``, to limit damages to 100 percent of production. 
+``D(T)=1-(1/(1+aT^2))``
+    
+*Input:*
+- ``a`` : Damage coefficients (``a=0.0028`` for 2007, ``a=0.00267`` for 2013, ``a=0.00236`` for 2016)
+- ``T``: temperature
+    
+*Syntax:*
+```julia
+ACE_Traeger_replication.dam_DICE(a, T)
+```
+*Output:*
+The calculated DICE damage estimate.
+
+*Example*
+```julia
+ACE_Traeger_replication.dam_Sterner(0.0028,3)
+0.02458056964494726
+```
+"""
 function dam_DICE(a, T)
     x=1 .- 1 ./ (1 .+ a.* T.^2)
     return x
 end
     
 #For Howard and Sterner(2017): with the default value a, similar as in Sterner
+"""
+This damage function is based on Howard and Sterner (2017):
+``D(T)=aT^2``
+    
+*Input:*
+- ``a`` : Damage coefficient. By default, it is set to 0.01145. The user must write the value of a explicitely, if he wants to use the dam_Sterner function with another ``a``.
+- ``T``: temperature
+    
+*Syntax:*
+```julia
+ACE_Traeger_replication.dam_Sterner(T, a)
+```
+    
+*Output:*
+The calculated DICE-Howard-Sterner damage estimate.
+
+*Example*
+```julia-repl
+julia> ACE_Traeger_replication.dam_Sterner(3)
+0.10305
+```
+"""
 function dam_Sterner(T, a=0.01145)
     x= a .* T.^2
     return x
 end
     
-#For Dam_Weitz
+#For Dam_Weitz (in the initial code but not used to generate results)
 function dam_Weitz(T)
     x=1 .- 1 ./ (1 .+ (T ./ 20.46).^2 .+ (T ./ 6.081).^6.754)
     return x
 end
-    
+
 #For ACE:
+"""
+The damage function in ACE takes an exponential functional form: 
+``D(T)=1-exp(-ξ0*exp(ξ1*T)+ξ0)``
+with ``ξ0``, a free damage parameters and the paramteter ``ξ1=(log 2)/s`` pinned down by climate sensitivity s.
+    
+*Input:*
+- ``ξ0``: xi0 (Calibrated to 0.022 in the paper. The base calibration is an exact match of the two calibration points 0° and 2.5° in the 2007 model)
+- ``ξ1``: xi1 (Estimated to ``0.25`` in the paper)
+- ``T``: temperature
+    
+*Syntax:*
+```julia
+dam_ACE(xi0, xi1, T)
+```
+*Output:*
+The calculated ACE damage estimate.
+
+*Example:*
+```julia
+dam_ACE(0.022, 0.25, 3)
+0.024274517795511485
+```
+"""
 function dam_ACE(xi0, xi1, T)
     x=1 .- exp.(-xi0 * exp.(xi1 .* T) .+ xi0)
     return x
@@ -52,7 +118,32 @@ function squeeze(A::Vector{Float64})
 end
 
 
-#This function define the Sterner damage function: add into a package
+#This function define the Sterner damage function:
+
+
+"""
+The function below replicated original figure II in the paper. This figure shows the predicted damages of the different model depending on the temperature degrees above the preindustrial level.
+
+The different models are:
+- DICE 2007, 2013, 2016
+- ACE base damage calibration. It matches the two calibration points 0 and 2.5° in the 2007 model. 
+- HSP-norm: Howard and Sterner's damage function using DICE's approach to limit damages to 100 percents
+- HSP-nn: Howard and Sterner's damage function using DICE's approach, not normalized to limit damages to 100 percents. Damages exceed production at 9.5°. 
+    
+The left side of the plot refers to the temperature range of the IPCC secenarios in Figure 3 and the right zone is just a focus on lower degrees of warming. 
+    
+*Input:*
+- path
+    
+*Syntax:*
+
+```julia
+ACE_Traeger_replication.figure2(path)
+```
+    
+*Output:*
+- Figure 2 saved into graphpath
+"""
 function figure2(path::String)
     path=path   
     #For sterner: get the xi0
@@ -197,7 +288,18 @@ end
 ###############################################
 
 ############################################### FIGURE 3
+"""
+*Input:*
+- path
 
+*Syntax:*
+```julia
+ACE_Traeger_replication.figure3(path)
+```
+
+*Output:*
+- Figure 3 saved into graphpath
+"""
 function figure3(path::String)
 ##First, the authors use the MAGICC6.0 model by Meinshausen, Raper and Wigley(2011) to simulate
 #the RCP scenario over a time horizon of 400 years.
