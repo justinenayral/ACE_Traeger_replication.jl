@@ -8,8 +8,45 @@
 #      CalibrateBetaPopulation.jl
 #
 
+    #For DICE: get the xi0
+    function xi0DICE(initial_guess::Vector, a, matchtemp, T=2.5)
+        function xi0solve_DICE!(F, xi0)
+            F[1] = 1 / (1 + a * matchtemp^2) - exp(-xi0[1] * exp(xi1 * matchtemp) + xi0[1])
+        end
+        result = nlsolve(xi0solve_DICE!, initial_guess) # Solve the equation using NLsolve
+        x = result.zero[1] # Extract the solution
+        return x
+    end
+
 # MAIN SETTINGS
-include("Joos_decay_boxes.jl")
+# Fraction staying forever
+a0 = 0.2173
+
+# Fractions moving into other boxes
+a = [0.2240, 0.2824, 0.2763]
+
+# Half life of different reservoirs
+tau_life = [394.4, 36.54, 4.304]
+
+half_life = tau_life .* log(2)
+gamma_annual = exp.(-1 ./ tau_life)
+gamma_5year = exp.(-5 ./ tau_life)
+gamma_decadal = exp.(-10 ./ tau_life)
+
+if timestep in [1, 5, 10]
+    if timestep == 1
+        CarbonMatrix = diagm([1; gamma_annual])
+    elseif timestep == 5
+        CarbonMatrix = diagm([1; gamma_5year])
+    elseif timestep == 10
+        CarbonMatrix = diagm([1; gamma_decadal])
+    end
+else
+    # default is decadal
+    CarbonMatrix = diagm([1; gamma_decadal])
+end
+
+CarbonWeights = [a0; a]
 
 param["rho_discount_annual_exo"] = list["rho_discount_annual_exo"][jj]  
 damages = list["damages"][jj] 
@@ -162,7 +199,7 @@ switch_damvar = 0
 
 
     # Decomposition terms:
-    println(" Case: ", scenario[i, :], " - implied annual rho ", round(param["rho"][i] * 100, digits=2), "%")
+    println(" Case: ", jj, " - implied annual rho ", round(param["rho"][i] * 100, digits=2), "%")
     println("  Varphi_k (utility shadow value of capital) ", round(phi["k"][i], digits=5))
     println("  Varphi_tau (utility shadow value generalized temperature) ", round.(phi["tau"][i, :], digits=5))
     println("  Varphi_M (utility shadow value carbon) ", round.(phi["M"][i, :], digits=5))
