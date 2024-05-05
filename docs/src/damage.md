@@ -1,4 +1,0 @@
-
-
-
-The authors used differents 
