@@ -6,8 +6,9 @@ makedocs(
          modules  = [ACE_Traeger_replication],
          pages=[
                 "Home" => "index.md"
-               ])
+               ]
+)
+
 deploydocs(
-    repo="github.com/justinenayral/ACE_Traeger_replication.jl.git",
-    devbranch = "main"
+    repo="github.com:justinenayral/ACE_Traeger_replication.jl.git"
 )
