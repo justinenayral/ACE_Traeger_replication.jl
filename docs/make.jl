@@ -7,6 +7,7 @@ makedocs(
          pages=[
                 "Home" => "index.md"
                ])
-deploydocs(;
-    repo="github.com/justinenayral/ACE_Traeger_replication.jl",
+deploydocs(
+    repo="github.com/justinenayral/ACE_Traeger_replication.jl.git",
+    devbranch = "main"
 )
