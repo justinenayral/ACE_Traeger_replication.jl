@@ -7,6 +7,7 @@ makedocs(
          pages=[
                 "Home" => "index.md"
                ],
+               versions = ["stable" => "v^", "v#.#", devurl => devurl],
                format = Documenter.HTML(prettyurls = false)
 )
 
