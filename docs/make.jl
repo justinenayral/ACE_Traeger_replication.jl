@@ -6,9 +6,11 @@ makedocs(
          modules  = [ACE_Traeger_replication],
          pages=[
                 "Home" => "index.md"
-               ]
+               ],
+               format = Documenter.HTML(prettyurls = false)
 )
 
 deploydocs(
-    repo="github.com:justinenayral/ACE_Traeger_replication.jl.git"
+    repo="github.com:justinenayral/ACE_Traeger_replication.jl.git",
+    devbranch="main"
 )
