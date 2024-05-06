@@ -1,6 +1,6 @@
 # Package : ACE_Traeger_replication.jl
 
-[Website for the package](https://justinenayral.github.io/ACE_Traeger_replication.jl/)
+[Website for the package] (https://justinenayral.github.io/ACE_Traeger_replication.jl/)
 
 **Authors**: Norbert Monti, Nayral Justine
 
