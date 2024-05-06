@@ -1,7 +1,6 @@
 # ACE_Traeger_replication.jl
 
-[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://justinenayral.github.io/ACE_Traeger_replication.jl/stable)
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://justinenayral.github.io/ACE_Traeger_replication.jl/dev)
+[Website for the package](https://justinenayral.github.io/ACE_Traeger_replication.jl/)
 
 **Authors**: Norbert Monti, Nayral Justine
 
