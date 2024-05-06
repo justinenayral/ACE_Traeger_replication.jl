@@ -1,6 +1,5 @@
 push!(LOAD_PATH,"../src/")
 using ACE_Traeger_replication
-
 using Documenter
 makedocs(
          sitename = "ACE_Traeger_replication.jl",
@@ -8,7 +7,6 @@ makedocs(
          pages=[
                 "Home" => "index.md"
                ],
-               versions = ["stable" => "v^", "v#.#", devurl => devurl],
                format = Documenter.HTML(prettyurls = false)
 )
 
