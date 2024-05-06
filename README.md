@@ -1,4 +1,4 @@
-# ACE_Traeger_replication.jl
+# Package : ACE_Traeger_replication.jl
 
 [Website for the package](https://justinenayral.github.io/ACE_Traeger_replication.jl/)
 
