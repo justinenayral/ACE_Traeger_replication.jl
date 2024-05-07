@@ -1,6 +1,7 @@
 push!(LOAD_PATH,"../src/")
 using ACE_Traeger_replication
 using Documenter
+
 makedocs(
          sitename = "ACE_Traeger_replication.jl",
          modules  = [ACE_Traeger_replication],
