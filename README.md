@@ -1,6 +1,6 @@
 # ACE_Traeger_Replication.jl
 
-**Authors**: Norbert Monti, Nayral Justine
+**Authors**: Norbert Monti, Justine Nayral
 
 Please find the website for this package at this link: [website for the package](https://justinenayral.github.io/ACE_Traeger_replication.jl/)
 
@@ -107,7 +107,7 @@ ACE_Traeger_replication.dam_DICE(a, T)
 
 *Example*
 ```julia-repl
-julia> ACE_Traeger_replication.dam_Sterner(0.0028,3)
+julia> ACE_Traeger_replication.dam_DICE(0.0028,3)
 0.02458056964494726
 ```
 
@@ -266,7 +266,7 @@ These assumptions are included in the scenarios and can take the following value
  - the scenario can include population weighting or not
  - the scenario can include a capital share in production (kappa) of value 0.3 (stylized fact) or 0.4 (more recent estimates) as well as calibrated ones.
 
-Note that population recalibration is not implemented in this replication, therefore 3 scenarios are missing.
+Note that population recalibration is not implemented in this replication, therefore 3 scenarios are missing (original scenarios 7, 12 and 15).
 
 *Input:*
 - path

@@ -1,6 +1,6 @@
 # ACE\_Traeger\_Replication.jl
 
-**Authors**: Norbert Monti, Nayral Justine
+**Authors**: Norbert Monti, Justine Nayral
 
 
 This package reproduces the findings of Traeger, Christian P. (2023) in his paper titled 'ACE—Analytic Climate Economy,' published in the *American Economic Journal: Economic Policy*, Volume 15, Issue 3, pages 372-406. While the [original replication materials](https://www.openicpsr.org/openicpsr/project/154141/version/V1/view) provided by the author were coded in Matlab, we have used Julia to build a replication package, reproducing the main results, Figure II, Figure III, Figure IV, and Table I.
@@ -9,7 +9,7 @@ The paper examines optimal carbon taxation using integrated assessment models (I
 
 ## Package installation guide
 
-In order to add ACE_Traeger_Replication.jl take the following steps:
+In order to add ACE\_Traeger\_Replication.jl take the following steps:
 
 1. Install git. [Here's a handy guide](https://kinsta.com/knowledgebase/install-git/), depending on your OS.
 2. In terminal, go to the folder where you want to save the package locally. Clone the package to your computer:
@@ -18,7 +18,7 @@ In order to add ACE_Traeger_Replication.jl take the following steps:
 cd "path/where/you/want/to/save/package"
 git clone https://github.com/justinenayral/ACE_Traeger_replication.jl.git
 ```
-3. Start up a julia session and go to the source folder where ACE_Traeger_replication.jl is saved
+3. Start up a julia session and go to the source folder where ACE\_Traeger\_replication.jl is saved
 ```
 cd("path/where/code/is/saved/ACE_Traeger_replication.jl")
 ```
@@ -32,7 +32,7 @@ In case of issues, while running the code just use the ? in the repl, followed b
 For more information on the underlying code, click on the source button in the relevant section.
 
 ## Data availability
-Our replication packages require downloading the data used by the authors from the orginal [replication package](https://www.openicpsr.org/openicpsr/project/154141/version/V1/view?flag=follow&pageSize=100&sortOrder=(?title)&sortAsc=true).
+Our replication packages require downloading the data used by the authors from the original [replication package](https://www.openicpsr.org/openicpsr/project/154141/version/V1/view?flag=follow&pageSize=100&sortOrder=(?title)&sortAsc=true).
 
 ## Path
 The user needs to provide a path where figures will be saved:
@@ -85,10 +85,6 @@ ACE_Traeger_replication.dam_Sterner
 ```@docs
 ACE_Traeger_replication.Damage_function_plot
 ```
-
-*Output:*
-- Figure 2 saved into path
-
 Original figure: 
 ![](figure2or.png)
 
