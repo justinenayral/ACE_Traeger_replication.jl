@@ -1,7 +1,7 @@
-module ACE_Traeger_replication
+module ACE_Traeger_replication()
 
-import MAT #To open .mat datasets
-import Printf #For labelling graphs
+import MAT
+import Printf
 import LinearAlgebra
 import NLsolve
 import DataFrames
@@ -9,8 +9,8 @@ import Plots
 import CSV
 import XLSX
 
-using MAT #To open .mat datasets
-using Printf #For labelling graphs
+using MAT
+using Printf
 using LinearAlgebra
 using NLsolve
 using DataFrames
@@ -18,43 +18,139 @@ using Plots
 using CSV
 using XLSX
 
-greet() = print("Hello ACE!")
-
-path = "C:/Users/Guada/Dropbox/Traeger/Julia code/"
-
 timestep = 10
-
-    # DICE 2013R by Nordhaus:
-    # Climate damage parameters
-    # a1: Damage intercept                                 /0       /
-    # a2: Damage quadratic term                            /0.00267 /
-    # a3: Damage exponent                                  /2.00    /
-    a_Nord_13 = 0.00267
-    
-    # Damage Parameters Nordhaus DICE 2016
-    a_Nord_16 = 0.00236
-    
-    # Damage Parameters Nordhaus DICE 2007
-    a_Nord = 0.0028
-    
-    # ACE model parameters
-    cs = 3
-    xi1 = 0.23104906018 * 3 / cs
-    
-    #Matching Howard Sterner 2017 Damages parameters
-    #Damage Parameters Howard Sterner:
-    a_Sterner=0.01145
 
 ############################################### 
 
-############################################### FIGURE 2
+############################################### DAMAGE FUNCTIONS
 
-function figure2() 
     
 #Damage function
-
-    #This function define the Sterner damage function: add into a package
+#Define the damage functions
+#For Dice:
+"""
+DICE damage function replace the quadratic damage term ``aT^2``, to limit damages to 100 percent of production. 
+``D(T)=1-(1/(1+aT^2))``
     
+*Input:*
+- ``a`` : Damage coefficients (``a=0.0028`` for 2007, ``a=0.00267`` for 2013, ``a=0.00236`` for 2016)
+- ``T``: temperature
+    
+*Syntax:*
+```julia
+ACE_Traeger_replication.dam_DICE(a, T)
+```
+*Output:*
+- The calculated DICE damage estimate.
+
+*Example*
+```julia-repl
+julia> ACE_Traeger_replication.dam_Sterner(0.0028,3)
+0.02458056964494726
+```
+"""
+function dam_DICE(a, T)
+    x=1 .- 1 ./ (1 .+ a.* T.^2)
+    return x
+end
+    
+#For Howard and Sterner(2017): with the default value a, similar as in Sterner
+"""
+This damage function is based on Howard and Sterner (2017):
+``D(T)=aT^2``
+    
+*Input:*
+- ``a`` : Damage coefficient. By default, it is set to 0.01145. The user must write the value of a explicitely, if he wants to use the dam_Sterner function with another ``a``.
+- ``T``: temperature
+    
+*Syntax:*
+```julia
+ACE_Traeger_replication.dam_Sterner(T, a)
+```
+    
+*Output:*
+- The calculated DICE-Howard-Sterner damage estimate.
+
+*Example*
+```julia-repl
+julia> ACE_Traeger_replication.dam_Sterner(3)
+0.10305
+```
+"""
+function dam_Sterner(T, a=0.01145)
+    x= a .* T.^2
+    return x
+end
+    
+#For Dam_Weitz (in the initial code but not used to generate results)
+function dam_Weitz(T)
+    x=1 .- 1 ./ (1 .+ (T ./ 20.46).^2 .+ (T ./ 6.081).^6.754)
+    return x
+end
+
+#For ACE:
+"""
+The damage function in ACE takes an exponential functional form: 
+- ``D(T)=1-exp(-ξ0*exp(ξ1*T)+ξ0)``
+with ``ξ0``, a free damage parameters and the paramteter ``ξ1=log(2)/s`` pinned down by climate sensitivity s.
+    
+*Input:*
+- ``ξ0``: xi0 (Calibrated to 0.022 in the paper. The base calibration is an exact match of the two calibration points 0° and 2.5° in the 2007 model)
+- ``ξ1``: xi1 (Estimated to ``0.25`` in the paper)
+- ``T``: temperature
+    
+*Syntax:*
+```julia
+ACE_Traeger_replication.dam_ACE(xi0, xi1, T)
+```
+*Output:*
+- The calculated ACE damage estimate.
+
+*Example:*
+```julia-repl
+julia> ACE_Traeger_replication.dam_ACE(0.022, 0.25, 3)
+0.024274517795511485
+```
+"""
+function dam_ACE(xi0, xi1, T)
+    x=1 .- exp.(-xi0 * exp.(xi1 .* T) .+ xi0)
+    return x
+end
+    
+##Damage functions: 
+#function squeeze(A::Vector{Float64})
+#    singleton_dims = tuple((d for d in 1:ndims(vec(A)) if size(vec(A), d) == 1)...)
+#    return squeeze(vec(A), singleton_dims)
+#end
+
+
+############################################### FIGURE 2
+
+"""
+The function below replicates original figure II in the paper. This figure shows the predicted damages of different models depending on the temperature degrees above the preindustrial level.
+
+The different models are:
+- DICE 2007, 2013, 2016
+- ACE base damage calibration. It matches the two calibration points 0 and 2.5° in the 2007 model. 
+- HSP-norm: Howard and Sterner's damage function using DICE's approach to limit damages to 100 percents
+- HSP-nn: Howard and Sterner's damage function using DICE's approach, not normalized to limit damages to 100 percents. Damages exceed production at 9.5°. 
+    
+The left side of the plot refers to the temperature range of the IPCC secenarios in Figure 3 and the right side is focuses on lower degrees of warming. 
+    
+*Input:*
+- path
+    
+*Syntax:*
+
+```julia
+ACE_Traeger_replication.Damage_function_plot(path)
+```
+    
+*Output:*
+- Figure 2 saved into path
+"""
+function Damage_function_plot(path=pwd())
+    path=path   
     #For sterner: get the xi0
     function xi0Sterner(initial_guess::Vector, a, matchtemp, T=2.5)
         function xi0solve_Sterner!(F, xi0)
@@ -73,38 +169,6 @@ function figure2()
         result = nlsolve(xi0solve_DICE!, initial_guess) # Solve the equation using NLsolve
         x = result.zero[1] # Extract the solution
         return x
-    end
-    
-    #Define the damage functions
-    #For Dice:
-    function dam_DICE(a, T)
-        x=1 .- 1 ./ (1 .+ a.* T.^2)
-        return x
-    end
-    
-    #For Howard and Sterner(2017): with the default value a, similar as in Sterner
-    function dam_Sterner(T, a=0.01145)
-        x= a .* T.^2
-        return x
-    end
-    
-    #For Dam_Weitz
-    function dam_Weitz(T)
-        x=1 .- 1 ./ (1 .+ (T ./ 20.46).^2 .+ (T ./ 6.081).^6.754)
-        return x
-    end
-    
-    #For ACE:
-    function dam_ACE(xi0, xi1, T)
-        x=1 .- exp.(-xi0 * exp.(xi1 .* T) .+ xi0)
-        return x
-    end
-    
-    ##Damage functions:
-    
-    function squeeze(A::Vector{Float64})
-        singleton_dims = tuple((d for d in 1:ndims(vec(A)) if size(vec(A), d) == 1)...)
-        return squeeze(vec(A), singleton_dims)
     end
 
         
@@ -135,10 +199,6 @@ function figure2()
     cs = 3
     xi1 = 0.23104906018 * 3 / cs
     
-    #Matching Howard Sterner 2017 Damages parameters
-    #Damage Parameters Howard Sterner:
-    a_Sterner=0.01145
-
     ##Matching Nordhaus and HSP, damages parameters
     #matchtemp=2.5
     # Extract the solution
@@ -227,190 +287,218 @@ function figure2()
     yticks!([0, 0.05, 0.1, 0.15, 0.20, 0.25, 0.3], ["0", "5", "10", "15", "20", "25", "30"])
     
     h = plot(h1, h2, layout=(1,2), size=(800,550))
-
+    savefig(h, path*"/Damage_function_plot.pdf")
 end
 
 ###############################################
 
 ############################################### FIGURE 3
-
-function figure3()
-##First, the authors use the MAGICC6.0 model by Meinshausen, Raper and Wigley(2011) to simulate
-#the RCP scenario over a time horizon of 400 years.
-
-#The calibration of ACE uses 2 ocean layers(upper and deep) compared to MAGGIC's 50 layers and DICE's ocean layers
-
-#Setup:
-Startdate=2015
-Enddate=2400
-
-#Fixed settings of final Calibration
-cs=3 #climate sensitivity
-η=3.8 #forcing parameter used to calculate CO2equivalents from RF
-timestep=10 #Number of time step
-Oceanlayers=2 #Number of ocean layers used in calibration
-Selectlayers=[5, 40] # Ocean layer's of Magicc used in calibration for shallow ocean (layer 5) and deep ocean (layer 40)
-weight=[4, 2, 1] # sets weights for error returned, weight on atmosphere, shallow, and deep ocean
-σ=[0.538194273157518,	0.0765198358638229,	0.00399267991987196,	0.461805699284704,	0.0274865322002226] #Corresponding sigma (heat flows between adjacent layers), same as in TMDynamics.m
-
-#importing Magicc 6.0 data generated by CT using downloaded version of Magicc 6.
-data=matread(path*"//MagiccOcean.mat")
-
-
-#Get the name of all the variables: MagiccOcean is a Dictionnary with Dictionnaries inside
-scenario = collect(keys(data["MagiccOcean"]))
-S=length(scenario) #Number of scenarios
-
-#define the first and the end dates
-startpos = findfirst(data["MagiccOcean"][scenario[1]]["Year"].==Startdate)[1]
-endpos = findfirst(data["MagiccOcean"][scenario[1]]["Year"].==Enddate)[1]
-
-#CHeck that the index for the first and the last dates in the data are consistent
-if endpos-startpos!=Enddate-Startdate
-    error("Years Missing, interrrupt")
-end
-
-#Read the Layer's names and initialize the Temp matrix (layers (atm and ocean) , scenarios , horizon )
-Layer=data["MagiccOcean"][scenario[1]]["Layer"] #Read in layer names
-Temp = zeros(Oceanlayers + 1, S, floor(Int, (endpos - startpos) / timestep + 1))
-RF = zeros(S, floor(Int, (endpos - startpos) / timestep + 1)) #Radiative forcing (greenhouse effect)
-
-for s=1:S
-    RF[s, :] = data["MagiccOcean"][scenario[s]]["RFtot"][startpos:timestep:endpos]'
-    Temp[1, s, :] = data["MagiccOcean"][scenario[s]]["Tempatm"][startpos:timestep:endpos]' 
-    for l = 1:Oceanlayers
-        Temp[l+1, s, :] = data["MagiccOcean"][scenario[s]]["Temp"][startpos:timestep:endpos, Selectlayers[l]]' 
-    end
-end 
-
-#forcing
-forcing=exp.(log(2)/η*RF)
-
-#We define the parameter xi1=log(2)/s:
-xi_base=zeros(Oceanlayers+1)
-
-for i in 1:length(xi_base)
-xi_base[i]=log(2)/cs
-end
-
-#Get the size of the three vectors
-(layers, scenarios, horizon) = size(Temp)
-
-#Temp: 3-D temperature field: layers (atmosphere and ocean) , scenarios , horizon 
-
-logic = true
-
-# Call the function TempSimulation_ACE to run the simulation
-Simulation=TempSimulation_ACE(σ, Temp, forcing, xi_base, weight, logic)
-
-
-##Evaluating results for print out on screen and saving, using Magicc data
-# Assign sigma_up (first layers) and sigma_down (upper layers):
-optim=Dict()
-optim["σ_up"]=σ[1:layers]
-optim["σ_down"]=σ[layers+1:2*layers-1]
-
-# Construct TempHelpDown and TempHelpUp matrices
-TempHelpDown = [zeros(layers-1, 1) diagm(optim["σ_down"][1:layers-1]); zeros(1, layers)]
-TempHelpUp = [zeros(1, layers); diagm(optim["σ_up"][2:layers]) zeros(layers-1, 1)] #OK
-
-# Assign taubar
-taubar = 1
-optim["TempMatrix"]=diagm(1 .- optim["σ_up"] - [optim["σ_down"]; 0]) + TempHelpDown + TempHelpUp
-optim["xi"]=Simulation["xi"]
-
-pos_2015 = findfirst(data["MagiccOcean"][scenario[1]]["Year"].==2015)[1] 
-
-RF_init=zeros(S,1)
-Temp_init=zeros(Oceanlayers+1, S)
-for s = 1:S
-    RF_init[s, :] .= data["MagiccOcean"][scenario[s]]["RFtot"][pos_2015]'
-    Temp_init[1, s, :] .= data["MagiccOcean"][scenario[s]]["Tempatm"][pos_2015]' # Note: Use square brackets for indexing dictionaries
-    for l = 1:Oceanlayers
-        Temp_init[l + 1, s, :] .= data["MagiccOcean"][scenario[s]]["Temp"][pos_2015]'
-    end
-end
-
-optim["τ_initial"] = exp.(diagm(optim["xi"]) * Temp_init)
-optim["Temp_initial"] = Temp_init # [layers scenarios] in 2015
-
-
-####Plotting
-#Export extra datasets to get other specifications
-d=matread(path*"//TempDataCalel.mat")
-
-#Necessary variables for graph
-d["data"]["year_ACE"] = Startdate:timestep:Enddate
-d["data"]["year_Magicc"] = Startdate:timestep:Enddate
-
-#CHeck the minimum and maximum year of each specifications
-maxyearplot = maximum(d["data"]["year_ACE"]) + 5
-minyearplot = minimum(d["data"]["year_ACE"]) - 5
-
-maxyearplot_DICE = findlast(x -> x <= min(maximum(d["data"]["DICE13"][:, 2]), maxyearplot), d["data"]["DICE13"][:, 2])
-minyearplot_DICE = findfirst(x -> x >= max(minimum(d["data"]["DICE13"][:, 2]), minyearplot), d["data"]["DICE13"][:, 2])
-
-maxyearplot_PAGE = findlast(x -> x <= min(maximum(d["data"]["PAGE"][:, 2]), maxyearplot), d["data"]["PAGE"][:, 2])
-minyearplot_PAGE = findfirst(x -> x >= max(minimum(d["data"]["PAGE"][:, 2]), minyearplot), d["data"]["PAGE"][:, 2])
-
-maxyearplot_FUND = findlast(x -> x <= min(maximum(d["data"]["FUND"][:, 2]), maxyearplot), d["data"]["FUND"][:, 2])
-minyearplot_FUND = findfirst(x -> x >= max(minimum(d["data"]["FUND"][:, 2]), minyearplot), d["data"]["FUND"][:, 2])
-
-#Define the legend
-legend=["RCP 6 to 4.5", "RCP 3", "RCP 4.5", "RCP 8.5", "RECP 4.5 to 3", "RCP 6"]
-#Initialization of the variables for building the plot
-Temp_plot=zeros(39,3)
-TempSim_plot=zeros(39,3)
-Temp_combined_plot_atm=zeros(39,6)
-Temp_combined_plot_atm_sim=zeros(39,6)
-
-#
-for i=1:scenarios # This loop over scenarios closes only for final all scenario plots
-
-    for l = 1:Oceanlayers + 1
-        Temp_plot[:, l] = Temp[l, i, :]
-        TempSim_plot[:, l] .= Simulation["Tempsim"][l, i, :]
+"""
+This function replicates Figure III of the paper. The authors use the MAGICC6.0 model by Meinshausen, Raper and Wigley(2011) to simulate
+the Representative Concentration Pathway (RCP) scenario over a time horizon of 400 years. The calibration of ACE uses 2 ocean layers(upper and deep) compared to MAGGIC's 50 layers and DICE's ocean layers.
+The figure shows ACE's temperature response from present times to 2400 compared to MAGICC6.0 using the color-coded radiative forcing scenarios of the latest IPCC assessment report.
     
-        if l == 1
-            # Saving for plot containing only atm layer but all scenarios
-            Temp_combined_plot_atm[:, i] = Temp[l, i, :]
-            Temp_combined_plot_atm_sim[:, i] = Simulation["Tempsim"][l, i, :]
+Note that the dataframe MagiccOcean.mat and TempDataCalel.mat are required to run this function. Please save these dataframes to your datapath of choice (default is current working directory).        
+
+Make sure you have the following dataframes:
+- MagiccOcean.mat
+- TempDataCalel.mat
+        
+*Input:*
+- path: The user should provide their preferred path to save the figure. Otherwise the function takes the working directory by default.
+- datapath: The user should provide the location of the data needed for the figure (found in replication package). Otherwise the function takes the current working directory as default. 
+
+*Necessary dataframes are:*
+- MagiccOcean.mat
+- TempDataCalel.mat
+        
+*Syntax:*
+```julia
+ACE_Traeger_replication.TempFitSim(path, datapath)
+```
+        
+*Output:*
+- Figure 3 saved into path
+"""
+function TempFitSim(path = pwd(), datapath = pwd())
+    ##First, the authors use the MAGICC6.0 model by Meinshausen, Raper and Wigley(2011) to simulate
+    #the RCP scenario over a time horizon of 400 years.
+
+    #The calibration of ACE uses 2 ocean layers(upper and deep) compared to MAGGIC's 50 layers and DICE's ocean layers
+
+    #Setup:
+    Startdate=2015
+    Enddate=2400
+
+    #Fixed settings of final Calibration
+    cs=3 #climate sensitivity
+    η=3.8 #forcing parameter used to calculate CO2equivalents from RF
+    timestep=10 #Number of time step
+    Oceanlayers=2 #Number of ocean layers used in calibration
+    Selectlayers=[5, 40] # Ocean layer's of Magicc used in calibration for shallow ocean (layer 5) and deep ocean (layer 40)
+    weight=[4, 2, 1] # sets weights for error returned, weight on atmosphere, shallow, and deep ocean
+    σ=[0.538194273157518,	0.0765198358638229,	0.00399267991987196,	0.461805699284704,	0.0274865322002226] #Corresponding sigma (heat flows between adjacent layers), same as in TMDynamics.m
+
+    #importing Magicc 6.0 data generated by CT using downloaded version of Magicc 6.
+    data=matread(datapath*"//MagiccOcean.mat")
+
+
+    #Get the name of all the variables: MagiccOcean is a Dictionnary with Dictionnaries inside
+    scenario = collect(keys(data["MagiccOcean"]))
+    S=length(scenario) #Number of scenarios
+
+    #define the first and the end dates
+    startpos = findfirst(data["MagiccOcean"][scenario[1]]["Year"].==Startdate)[1]
+    endpos = findfirst(data["MagiccOcean"][scenario[1]]["Year"].==Enddate)[1]
+
+    #Check that the index for the first and the last dates in the data are consistent
+    if endpos-startpos!=Enddate-Startdate
+        error("Years Missing, interrrupt")
+    end
+
+    #Read the Layer's names and initialize the Temp matrix (layers (atm and ocean) , scenarios , horizon )
+    Layer=data["MagiccOcean"][scenario[1]]["Layer"] #Read in layer names
+    Temp = zeros(Oceanlayers + 1, S, floor(Int, (endpos - startpos) / timestep + 1))
+    RF = zeros(S, floor(Int, (endpos - startpos) / timestep + 1)) #Radiative forcing (greenhouse effect)
+
+    for s=1:S
+        RF[s, :] = data["MagiccOcean"][scenario[s]]["RFtot"][startpos:timestep:endpos]'
+        Temp[1, s, :] = data["MagiccOcean"][scenario[s]]["Tempatm"][startpos:timestep:endpos]' 
+        for l = 1:Oceanlayers
+            Temp[l+1, s, :] = data["MagiccOcean"][scenario[s]]["Temp"][startpos:timestep:endpos, Selectlayers[l]]' 
+        end
+    end 
+
+    #forcing
+    forcing=exp.(log(2)/η*RF)
+
+    #We define the parameter xi1=log(2)/s:
+    xi_base=zeros(Oceanlayers+1)
+
+    for i in 1:length(xi_base)
+    xi_base[i]=log(2)/cs
+    end
+
+    #Get the size of the three vectors
+    (layers, scenarios, horizon) = size(Temp)
+
+    #Temp: 3-D temperature field: layers (atmosphere and ocean) , scenarios , horizon 
+
+    logic = true
+
+    # Call the function TempSimulation_ACE to run the simulation
+    Simulation=TempSimulation_ACE(σ, Temp, forcing, xi_base, weight, logic)
+
+
+    ##Evaluating results for print out on screen and saving, using Magicc data
+    # Assign sigma_up (first layers) and sigma_down (upper layers):
+    optim=Dict()
+    optim["σ_up"]=σ[1:layers]
+    optim["σ_down"]=σ[layers+1:2*layers-1]
+
+    # Construct TempHelpDown and TempHelpUp matrices
+    TempHelpDown = [zeros(layers-1, 1) diagm(optim["σ_down"][1:layers-1]); zeros(1, layers)]
+    TempHelpUp = [zeros(1, layers); diagm(optim["σ_up"][2:layers]) zeros(layers-1, 1)] #OK
+
+    # Assign taubar
+    taubar = 1
+    optim["TempMatrix"]=diagm(1 .- optim["σ_up"] - [optim["σ_down"]; 0]) + TempHelpDown + TempHelpUp
+    optim["xi"]=Simulation["xi"]
+
+    pos_2015 = findfirst(data["MagiccOcean"][scenario[1]]["Year"].==2015)[1] 
+
+    RF_init=zeros(S,1)
+    Temp_init=zeros(Oceanlayers+1, S)
+    for s = 1:S
+        RF_init[s, :] .= data["MagiccOcean"][scenario[s]]["RFtot"][pos_2015]'
+        Temp_init[1, s, :] .= data["MagiccOcean"][scenario[s]]["Tempatm"][pos_2015]' # Note: Use square brackets for indexing dictionaries
+        for l = 1:Oceanlayers
+            Temp_init[l + 1, s, :] .= data["MagiccOcean"][scenario[s]]["Temp"][pos_2015]'
         end
     end
 
-end
+    optim["τ_initial"] = exp.(diagm(optim["xi"]) * Temp_init)
+    optim["Temp_initial"] = Temp_init # [layers scenarios] in 2015
 
-# Joint scenario plots
-g = plot(title="Temp Fit all scen", xlabel="year", ylabel="Temperature")
-legend=["RCP 6 to 4.5", "RCP 3", "RCP 4.5", "RCP 8.5", "RECP 4.5 to 3", "RCP 6"]
-colors = ["deepskyblue2",  "midnightblue",   "red2",   "olivedrab3",   "darkgreen",   "indigo"]
 
-order=[2, 5, 3, 1, 6, 4]
+    ####Plotting
+    #Export extra datasets to get other specifications
+    d=matread(datapath*"//TempDataCalel.mat")
 
-for i in order
-    plot!(Startdate:timestep:Enddate, Temp_combined_plot_atm_sim[:,i], linestyle=:dash, color=colors[i], linewidth=2, label="")
-    plot!(Startdate:timestep:Enddate, Temp_combined_plot_atm[:,i], color=colors[i], linewidth=2, label=legend[i])
-end
+    #Necessary variables for graph
+    d["data"]["year_ACE"] = Startdate:timestep:Enddate
+    d["data"]["year_Magicc"] = Startdate:timestep:Enddate
 
-hline!([-Inf], color=:black, linestyle=:solid, label="MAGICC")
-hline!([-Inf], color=:black, linestyle=:dash, label="ACE", linewidth=2)
+    #CHeck the minimum and maximum year of each specifications
+    maxyearplot = maximum(d["data"]["year_ACE"]) + 5
+    minyearplot = minimum(d["data"]["year_ACE"]) - 5
 
-# Plot DICE13, PAGE, and FUND
-plot!(d["data"]["DICE13"][minyearplot_DICE:maxyearplot_DICE, 2], d["data"]["DICE13"][minyearplot_DICE:maxyearplot_DICE, 3], linestyle=:dash, linewidth=1, label="DICE", color=:pink)
-plot!(d["data"]["PAGE"][minyearplot_PAGE:maxyearplot_PAGE, 2], d["data"]["PAGE"][minyearplot_PAGE:maxyearplot_PAGE, 3], linestyle=:dash, linewidth=1, label="PAGE", color=:lightskyblue2)
-plot!(d["data"]["FUND"][minyearplot_FUND:maxyearplot_FUND, 2], d["data"]["FUND"][minyearplot_FUND:maxyearplot_FUND, 3], linestyle=:dash, linewidth=1, label="FUND", color=:grey)
+    maxyearplot_DICE = findlast(x -> x <= min(maximum(d["data"]["DICE13"][:, 2]), maxyearplot), d["data"]["DICE13"][:, 2])
+    minyearplot_DICE = findfirst(x -> x >= max(minimum(d["data"]["DICE13"][:, 2]), minyearplot), d["data"]["DICE13"][:, 2])
 
-for i in 2:4
-    plot!(d["data"]["DICE13"][minyearplot_DICE:maxyearplot_DICE, 2], d["data"]["DICE13"][minyearplot_DICE:maxyearplot_DICE, 2+i], linestyle=:dash, linewidth=1, label="", color=:pink)
-    plot!(d["data"]["PAGE"][minyearplot_PAGE:maxyearplot_PAGE, 2], d["data"]["PAGE"][minyearplot_PAGE:maxyearplot_PAGE, 2+i], linestyle=:dash, linewidth=1, label="", color=:lightskyblue2)
-    plot!(d["data"]["FUND"][minyearplot_FUND:maxyearplot_FUND, 2], d["data"]["FUND"][minyearplot_FUND:maxyearplot_FUND, 2+i], linestyle=:dash, linewidth=1, label="", color=:grey)
-end
-plot!(legendfontsize=6)
+    maxyearplot_PAGE = findlast(x -> x <= min(maximum(d["data"]["PAGE"][:, 2]), maxyearplot), d["data"]["PAGE"][:, 2])
+    minyearplot_PAGE = findfirst(x -> x >= max(minimum(d["data"]["PAGE"][:, 2]), minyearplot), d["data"]["PAGE"][:, 2])
 
-# Set xlabel and ylabel
-xlabel!("year")
-ylabel!("Degrees (Celsius) above preindustrial")
-title!("Temperature dynamics calibration")
+    maxyearplot_FUND = findlast(x -> x <= min(maximum(d["data"]["FUND"][:, 2]), maxyearplot), d["data"]["FUND"][:, 2])
+    minyearplot_FUND = findfirst(x -> x >= max(minimum(d["data"]["FUND"][:, 2]), minyearplot), d["data"]["FUND"][:, 2])
+
+    #Define the legend
+    legend=["RCP 6 to 4.5", "RCP 3", "RCP 4.5", "RCP 8.5", "RECP 4.5 to 3", "RCP 6"]
+    #Initialization of the variables for building the plot
+    Temp_plot=zeros(39,3)
+    TempSim_plot=zeros(39,3)
+    Temp_combined_plot_atm=zeros(39,6)
+    Temp_combined_plot_atm_sim=zeros(39,6)
+
+    #
+    for i=1:scenarios # This loop over scenarios closes only for final all scenario plots
+
+        for l = 1:Oceanlayers + 1
+            Temp_plot[:, l] = Temp[l, i, :]
+            TempSim_plot[:, l] .= Simulation["Tempsim"][l, i, :]
+        
+            if l == 1
+                # Saving for plot containing only atm layer but all scenarios
+                Temp_combined_plot_atm[:, i] = Temp[l, i, :]
+                Temp_combined_plot_atm_sim[:, i] = Simulation["Tempsim"][l, i, :]
+            end
+        end
+
+    end
+
+    # Joint scenario plots
+    g = plot(title="Temp Fit all scen", xlabel="year", ylabel="Temperature")
+    legend=["RCP 6 to 4.5", "RCP 3", "RCP 4.5", "RCP 8.5", "RECP 4.5 to 3", "RCP 6"]
+    colors = ["deepskyblue2",  "midnightblue",   "red2",   "olivedrab3",   "darkgreen",   "indigo"]
+
+    order=[2, 5, 3, 1, 6, 4]
+
+    for i in order
+        plot!(Startdate:timestep:Enddate, Temp_combined_plot_atm_sim[:,i], linestyle=:dash, color=colors[i], linewidth=2, label="")
+        plot!(Startdate:timestep:Enddate, Temp_combined_plot_atm[:,i], color=colors[i], linewidth=2, label=legend[i])
+    end
+
+    hline!([-Inf], color=:black, linestyle=:solid, label="MAGICC")
+    hline!([-Inf], color=:black, linestyle=:dash, label="ACE", linewidth=2)
+
+    # Plot DICE13, PAGE, and FUND
+    plot!(d["data"]["DICE13"][minyearplot_DICE:maxyearplot_DICE, 2], d["data"]["DICE13"][minyearplot_DICE:maxyearplot_DICE, 3], linestyle=:dash, linewidth=1, label="DICE", color=:pink)
+    plot!(d["data"]["PAGE"][minyearplot_PAGE:maxyearplot_PAGE, 2], d["data"]["PAGE"][minyearplot_PAGE:maxyearplot_PAGE, 3], linestyle=:dash, linewidth=1, label="PAGE", color=:lightskyblue2)
+    plot!(d["data"]["FUND"][minyearplot_FUND:maxyearplot_FUND, 2], d["data"]["FUND"][minyearplot_FUND:maxyearplot_FUND, 3], linestyle=:dash, linewidth=1, label="FUND", color=:grey)
+
+    for i in 2:4
+        plot!(d["data"]["DICE13"][minyearplot_DICE:maxyearplot_DICE, 2], d["data"]["DICE13"][minyearplot_DICE:maxyearplot_DICE, 2+i], linestyle=:dash, linewidth=1, label="", color=:pink)
+        plot!(d["data"]["PAGE"][minyearplot_PAGE:maxyearplot_PAGE, 2], d["data"]["PAGE"][minyearplot_PAGE:maxyearplot_PAGE, 2+i], linestyle=:dash, linewidth=1, label="", color=:lightskyblue2)
+        plot!(d["data"]["FUND"][minyearplot_FUND:maxyearplot_FUND, 2], d["data"]["FUND"][minyearplot_FUND:maxyearplot_FUND, 2+i], linestyle=:dash, linewidth=1, label="", color=:grey)
+    end
+    plot!(legendfontsize=6)
+
+    # Set xlabel and ylabel
+    xlabel!("year")
+    ylabel!("Degrees (Celsius) above preindustrial")
+    title!("Temperature dynamics calibration")
+
+    savefig(g, path*"/TempFitSim.pdf")
 
 end
 
@@ -455,7 +543,7 @@ function TempSimulation_ACE(σ, Temp, forcing, xi, weight, logic)
                         diagm(σ_up) * [forcing[:, y]'; τ[1:layers-1, :, y]] +
                         diagm(σ_down) * [τ[2:layers, :, y]; fill(τ_bar, 1, scenarios)]
         TempSim[:, :, y+1] = diagm(1 ./ xi) * log.(τ[:, :, y+1])
-    end #OK
+    end
 
 
     ##Evaluating
@@ -464,7 +552,7 @@ function TempSimulation_ACE(σ, Temp, forcing, xi, weight, logic)
     for l = 1:layers
         diff = weight[l] .* (TempSim[l, :, :] .- Temp[l, :, :]) .^ 2
         diff_sum += sum(diff)
-    end
+    end 
 
     # Set err to diff_sum
     err = Float64(diff_sum)
@@ -479,44 +567,54 @@ end
 
 ###############################################
 
+############################################### SUB-FIGURE 4
+"""
+The function below replicates a part of figure 4 in the paper. This figure shows temperature increases (in degree celsius) resulting from 
+    a one-time release of certain amount of gigatons of carbon across different models. Users can specify the amount of carbon released into the atmosphere. 
+    The default is 100 GtC as in the paper.
 
-
-############################################### Figure4_int
-
-function figure4_int()
-
-    # timestep can be chosen arbitrarily and will generate (wrong) results. Only reasonable time steps:
-    # timestep = 5 required for DICE models 
-    # timestep = 10 is main ACE specification
-    # timestep = 1 generates ACE specification calibrated to annual temperature dynamics
+The different models are:
+- ACE-DICE ACE using DICE's carbon cycle
+- ACE-Joos ACE using Joos et al. (2013) impulse-response model
+- Dynamic Integrated Climate-Economy (DICE) 2013, 2016
     
+*Input:*
+- impulse: The user can provide an impulse of their choice (in gigatons of carbon-equivalent)
+- path: The user should provide their preferred path to save the figure. Otherwise the function takes the working directory by default.
+    
+*Syntax:*
+
+```julia
+ACE_Traeger_replication.Impulse_response(pulse, path)
+```
+    
+*Output:*
+- figure saved into path
+"""
+function Impulse_response(pulse = 100, path=pwd())
+
     logic_plot=1 # turns plotting on
 
-
     logic_timing_pulse = 0;
-       # =0: adds pulse to M stock at beginning of present period (default for simple)
-       # =1: adds pulse to E in current period  (default for advanced timing)
+       # =0: adds pulse to M stock at beginning of present period (default)
     logic_emission_decay = 0;  
-       # =0: Emissions added straight to atmosphere (default for simple)
-       # =1: Emissions already partly decay on way to atmosphere - carbon cycle is applied as CarbonMatrix*(M_t+E_t)  (default for advanced timing)
-       # setting 1 requires also logic_timing_pulse = 1 embedding pulse in emissions.
-    logic_forcing_delay = 1;       
-       # =0: T_t+1(M_t) "common timing with delay"  
-       # =1: T_t+1(M_t+1) DICE and ACE preferred timing   (default for simple & advanced timing)
+       # =0: Emissions added straight to atmosphere (default)
+    logic_forcing_delay = 1;
+       # =1: T_t+1(M_t+1) DICE and ACE preferred timing   (default)
 
 
     #Parameters
     horizon=210   # years
-    pulse = 100  # Carbon pulse in GtC
+    pulse = pulse  # Carbon pulse in GtC
        
     # Select versions to calculate, save, and plot (ACE-DICE always on)
     logic_ACE_Joos=1 # Includes Joosetal 2013
     logic_DICE=1   # Includes DICE 2013
     logic_DICE16=1 # Includes DICE 2016
 
-
-    if logic_ACE_Joos == 1
-                #  Joos (2013) Carbon impuls response
+        # Joos Decay boxes
+            if logic_ACE_Joos == 1
+                #  Joos (2013) Carbon impulse response
                 #  Best fit to CMIP 5 specification
 
                 # Fraction staying forever
@@ -527,7 +625,6 @@ function figure4_int()
 
                 # Half life of different reservoirs
                 tau_life = [394.4, 36.54, 4.304]
-
                 half_life = tau_life .* log(2)
                 gamma_annual = exp.(-1 ./ tau_life)
                 gamma_5year = exp.(-5 ./ tau_life)
@@ -549,125 +646,110 @@ function figure4_int()
                 CarbonWeights = [a0; a]
 
                 CarbonMatrixJoos = copy(CarbonMatrix)
-    end
+            end
     
-param_timestep = timestep  # needed in TMDynamics for scaling of carbon cycle dynamics
+    param_timestep = timestep  # needed in TMDynamics for scaling of carbon cycle dynamics
 
-cs=3
-Mpre=596.4
-param = Dict()
-param["xi"] = [0.231049060186648, 0.231049060186648, 0.231049060186648]
-sigma_temp_up = [0.538194275028702]
+    # TMDynamics
+    cs=3
+    Mpre=596.4
+    param = Dict()
+    param["xi"] = [0.231049060186648, 0.231049060186648, 0.231049060186648]
+    sigma_temp_up = [0.538194275028702]
 
-TempMatrix = [0.000000027559817 0.461805697411481 0;
+    TempMatrix = [0.000000027559817 0.461805697411481 0;
               0.076519839162246 0.895993627259103 0.027486533578651;
               0 0.003992679633153 0.996007320366847]
 
-#Testing for possible mistakes/incompatibility
-param_xi1= log(2) / cs #Approximately 0.23, temperature trafo parameter
+    param_xi1= log(2) / cs #Approximately 0.23
 
-if param_xi1-param["xi"][1]>1e-10
-    print("Inconsistency with xi1 definition, check underlying cs")
-end
+    if param_xi1-param["xi"][1]>1e-10
+        print("Inconsistency with xi1 definition, check underlying cs")
+    end
 
-#RCP 6 2015 values for possible initialization (not required for paper):
-Initial = Dict("Temperature" => [0.98901461, 0.73635941, 0.73635941],
+    #RCP 6 2015 values for possible initialization (not required for paper):
+    Initial = Dict("Temperature" => [0.98901461, 0.73635941, 0.73635941],
                "tau" => [1.256727218547292, 1.185465055669960, 1.185465055669960],
                "M" => [818.985, 1527, 10010])
 
-#Testing equilibrium temperature increase of given specification:
-tau_eq_vec =(Matrix(1.0I, length(Initial["Temperature"]), length(Initial["Temperature"]))-TempMatrix)^(-1)*2*[sigma_temp_up[1]; zeros(length(Initial["Temperature"])-1)]
-#and translating back into temperature in degree Celsius:
-T_eq_vec=log.(tau_eq_vec)./param["xi"]
-print("Test of long-run equilibrium Temp at 2xCO2", round.(Int, T_eq_vec))
+    #Equilibrium temperature increase of given specification:
+    tau_eq_vec =(Matrix(1.0I, length(Initial["Temperature"]), length(Initial["Temperature"]))-TempMatrix)^(-1)*2*[sigma_temp_up[1]; zeros(length(Initial["Temperature"])-1)]
+    #and translating back into temperature in degree Celsius:
+    T_eq_vec=log.(tau_eq_vec)./param["xi"]
+    print("Test of long-run equilibrium Temp at 2xCO2", round.(Int, T_eq_vec))
 
-#Parameters Carbon Cycle Matrix
-sigma_carb = [0.088, 0.0025, 0.03832888889, 3.3750e-04]  # DICE
-sigma_carb = sigma_carb * timestep / 5  # rescales to 10 year time step. Extremely similar to 5 year
-CarbonMatrix = [1 - sigma_carb[1]  sigma_carb[3]  0; 
+    #Parameters Carbon Cycle Matrix
+    sigma_carb = [0.088, 0.0025, 0.03832888889, 3.3750e-04]  # DICE
+    sigma_carb = sigma_carb * timestep / 5  # rescales to 10 year time step. Extremely similar to 5 year
+
+    # Carbon Cycle Matrix
+    CarbonMatrix = [1 - sigma_carb[1]  sigma_carb[3]  0; 
                 sigma_carb[1]  1 - sigma_carb[2] - sigma_carb[3]  sigma_carb[4];
                 0  sigma_carb[2]  1 - sigma_carb[4]]
 
 
-xi = param["xi"]
-    
-    if timestep == 1
-        # overwrite temperature dynamics with system calibrated to 1 year time step
-        param.xi = [0.231049060186648, 0.231049060186648, 0.231049060186648]  # same as above
-        sigma_temp_up = [0.146170047477258]
-        TempMatrix = [0.711637064433489  0.142192888089253  0;
-                      0.007035452978769  0.991128650190495  0.001835896830736;
-                      0                  0.000378982121102  0.999621017878898]
-    end
-    
+    xi = param["xi"]
     sigma_forc = sigma_temp_up[1]
     
-# Path Initializations
+    # Path Initializations
+    hori = ceil(Int, horizon / timestep)
+    horizon_legend = (0:hori-1) * timestep
+    M = zeros(3, hori)
+    tau = zeros(3, hori)
+    tau_pulse = zeros(3, hori)
+    tau_Joos = zeros(3, hori)
+    Temp = zeros(3, hori)
+    Temp_pulse = zeros(3, hori)
+    Temp_Joos = zeros(3, hori)
+    M_pulse = zeros(3, hori)
+    M[:, 1] = Initial["M"]
+    tau[:, 1] = Initial["tau"]
+    tau_pulse[:, 1] = Initial["tau"]  # initial temp for pulse experiment using DICE 2013 carbon cycle
+    tau_Joos[:, 1] = Initial["tau"]   # initial temp for pulse experiment using Joos et al 2013
+    Temp[:, 1] = diagm(1 ./ xi) * log.(tau[:, 1])
+    Temp_pulse[:, 1] = diagm(1 ./ xi) * log.(tau[:, 1])
+    Temp_Joos[:, 1] = Temp[:, 1]
+    M_pulse[:, 1] = Initial["M"] .+ [pulse, 0, 0]
 
-hori = ceil(Int, horizon / timestep)
-horizon_legend = (0:hori-1) * timestep
+    # DICE 2013 Dynamic Variables
+    ParaDice = Dict()
+    ParaDice["Mpre"] = 588
+    ParaDice["climate_sens"] = 3 
+    println("Climate sensitivity is ", ParaDice["climate_sens"])
+    println("DICE13 itself would use 3.2")
+    ParaDice["eta"] = 3.8
+    ParaDice["Initial_M"] = [830.4 1527 10010]  # from GAMS. In EXCEL [818.985 1527 10010].
 
-M = zeros(3, hori)
-tau = zeros(3, hori)
-tau_pulse = zeros(3, hori)
-tau_Joos = zeros(3, hori)
-Temp = zeros(3, hori)
-Temp_pulse = zeros(3, hori)
-Temp_Joos = zeros(3, hori)
-M_pulse = zeros(3, hori)
-
-M[:, 1] = Initial["M"]
-tau[:, 1] = Initial["tau"]
-tau_pulse[:, 1] = Initial["tau"]  # initial temp for pulse experiment using DICE 2013 carbon cycle
-tau_Joos[:, 1] = Initial["tau"]   # initial temp for pulse experiment using Joos et al 2013
-Temp[:, 1] = diagm(1 ./ xi) * log.(tau[:, 1])
-Temp_pulse[:, 1] = diagm(1 ./ xi) * log.(tau[:, 1])
-Temp_Joos[:, 1] = Temp[:, 1]
-M_pulse[:, 1] = Initial["M"] .+ [pulse, 0, 0]
-
-if logic_timing_pulse == 0 && logic_emission_decay == 1
-    error("invalid option, if logic_emission_decay=1, then also need logic_timing_pulse=1")
-end
-
-# DICE 2013 Dynamic Variables
-ParaDice = Dict()
-ParaDice["Mpre"] = 588
-ParaDice["climate_sens"] = 3  # 3.2;  3;
-println("Climate sensitivity is ", ParaDice["climate_sens"])
-println("DICE13 itself would use 3.2")
-ParaDice["eta"] = 3.8
-ParaDice["Initial_M"] = [830.4 1527 10010]  # from GAMS. In EXCEL [818.985 1527 10010]. But initialization doesn't matter for linear model's impulse response
-
-# Parameters Carbon Cycle Matrix:
-sigma_carb = [0.088, 0.0025, 0.03832888889, 3.3750e-04]
-sigma_carb .= sigma_carb .* timestep / 5  # rescales time step based on DICE's 5 years.
-ParaDice["CarbonMatrix"] = [1 - sigma_carb[1] sigma_carb[3] 0;
+    # Parameters Carbon Cycle Matrix:
+    sigma_carb = [0.088, 0.0025, 0.03832888889, 3.3750e-04]
+    sigma_carb .= sigma_carb .* timestep / 5  # rescales time step based on DICE's 5 years.
+    ParaDice["CarbonMatrix"] = [1 - sigma_carb[1] sigma_carb[3] 0;
                          sigma_carb[1] 1 - sigma_carb[2] - sigma_carb[3] sigma_carb[4];
                          0 sigma_carb[2] 1 - sigma_carb[4]]
 
-# Temperature Dynamics
-ParaDice["Initial_T"] = [0.80 0.0068]  # GAMS
-ParaDice["c1"] = 0.098
-ParaDice["c3"] = 0.088
-ParaDice["c4"] = 0.025
+    # Temperature Dynamics
+    ParaDice["Initial_T"] = [0.80 0.0068]  # GAMS
+    ParaDice["c1"] = 0.098
+    ParaDice["c3"] = 0.088
+    ParaDice["c4"] = 0.025
 
-sigma_tempDICE = zeros(3)
-sigma_tempDICE[1] = ParaDice["c1"] * ParaDice["eta"] / ParaDice["climate_sens"]
-ParaDice["sigma_tempDICE"] = copy(sigma_tempDICE)
-sigma_tempDICE[2] = ParaDice["c1"] * ParaDice["c3"]
-sigma_tempDICE[3] = ParaDice["c4"]
+    sigma_tempDICE = zeros(3)
+    sigma_tempDICE[1] = ParaDice["c1"] * ParaDice["eta"] / ParaDice["climate_sens"]
+    ParaDice["sigma_tempDICE"] = copy(sigma_tempDICE)
+    sigma_tempDICE[2] = ParaDice["c1"] * ParaDice["c3"]
+    sigma_tempDICE[3] = ParaDice["c4"]
 
-if timestep != 5
-    println("Using timestep not equal to 5, DICE results will be off")
-end
+    if timestep != 5
+        println("Using timestep not equal to 5, DICE results will be off")
+    end
 
-sigma_tempDICE .= 1 .- (1 .- sigma_tempDICE) .^ (timestep / 5)  # rescales time step based on DICE's 5 years.
-ParaDice["TempDICEMatrix"] = [1 - sigma_tempDICE[1] - sigma_tempDICE[2] sigma_tempDICE[2];
+    sigma_tempDICE .= 1 .- (1 .- sigma_tempDICE) .^ (timestep / 5)  # rescales time step based on DICE's 5 years.
+    ParaDice["TempDICEMatrix"] = [1 - sigma_tempDICE[1] - sigma_tempDICE[2] sigma_tempDICE[2];
                             sigma_tempDICE[3] 1 - sigma_tempDICE[3]]
 
 
-# DICE 2016 Climate Dynamics
-if logic_DICE16 == 1
+    # DICE 2016 Dynamic Variables
+    if logic_DICE16 == 1
 
     ParaDice16 = Dict()    
     # Main parameters
@@ -708,67 +790,66 @@ if logic_DICE16 == 1
     sigma_tempDICE16 .= 1 .- (1 .- sigma_tempDICE16) .^ (timestep / 5)
     ParaDice16["TempDICEMatrix"] = [1 - sigma_tempDICE16[1] - sigma_tempDICE16[2] sigma_tempDICE16[2];
                                  sigma_tempDICE16[3] 1 - sigma_tempDICE16[3]]
-end
-
-if logic_DICE == 1
-    Tvec = zeros(2, hori)
-    Tvec_pulse = zeros(2, hori)
-    Temp_DICE = zeros(1, hori)
-    Temp_DICE_pulse = zeros(1, hori)
-
-    Tvec[:, 1] = ParaDice["Initial_T"]
-    Tvec_pulse[:, 1] = ParaDice["Initial_T"]
-    Temp_DICE[1] = Tvec[1, 1]
-    Temp_DICE_pulse[1] = Tvec_pulse[1, 1]
-end
-
-if logic_DICE16 == 1
-
-    M16 = zeros(3, hori)
-    M_pulse16 = zeros(3, hori)
-    Tvec16 = zeros(2, hori)
-    Tvec_pulse16 = zeros(2, hori)
-    Temp_DICE16 = zeros(1, hori)
-    Temp_DICE_pulse16 = zeros(1, hori)
-
-    M16[:, 1] = ParaDice16["Initial_M"]
-    M_pulse16[:, 1] = ParaDice16["Initial_M"] .+ [pulse, 0, 0]
-    Tvec16[:, 1] = ParaDice16["Initial_T"]
-    Tvec_pulse16[:, 1] = ParaDice16["Initial_T"]
-    Temp_DICE16[1] = Tvec16[1, 1]
-    Temp_DICE_pulse16[1] = Tvec_pulse16[1, 1]
-end
-
-for t = 1:hori - 1
-    # Carbon cycle:
-    # Calculate emissions that keep concentration constant. Equation equivalent to CarbonMatrix*M+E=M.
-    if logic_emission_decay == 0
-        Evec = (diagm(ones(3)) - CarbonMatrix) * M[:, t]
-    elseif logic_emission_decay == 1  # carbon cycle already hits current emissions.
-        Evec = (diagm(ones(3)) - CarbonMatrix) * M[:, t] / CarbonMatrix[1, 1]
     end
 
-    # Picking only atmospheric part keeps atm concentration fix, but not ocean (saturates)
-    E = zeros(hori)
-    E[t] = Evec[1]
-    if logic_timing_pulse == 0
-        M[:, t + 1] = CarbonMatrix * M[:, t] + [E[t], 0, 0]
-        M_pulse[:, t + 1] = CarbonMatrix * M_pulse[:, t] + [E[t], 0, 0]
-    elseif logic_timing_pulse == 1  # reset pulse stock in present to baseline stock
-        if logic_emission_decay == 0  # all of pulse appears next period
-            M[:, t + 1] = CarbonMatrix * M[:, t] + [E[t], 0, 0]
-            if t == 1
-                M_pulse[:, t] = M[:, t]
-                M_pulse[:, t + 1] = CarbonMatrix * M[:, t] + [pulse + E[t], 0, 0]
-            else
-                M_pulse[:, t + 1] = CarbonMatrix * M_pulse[:, t] + [E[t], 0, 0]
-            end
+    if logic_DICE == 1
+        Tvec = zeros(2, hori)
+        Tvec_pulse = zeros(2, hori)
+        Temp_DICE = zeros(1, hori)
+        Temp_DICE_pulse = zeros(1, hori)
+
+        Tvec[:, 1] = ParaDice["Initial_T"]
+        Tvec_pulse[:, 1] = ParaDice["Initial_T"]
+        Temp_DICE[1] = Tvec[1, 1]
+        Temp_DICE_pulse[1] = Tvec_pulse[1, 1]
+    end
+
+    if logic_DICE16 == 1
+        M16 = zeros(3, hori)
+        M_pulse16 = zeros(3, hori)
+        Tvec16 = zeros(2, hori)
+        Tvec_pulse16 = zeros(2, hori)
+        Temp_DICE16 = zeros(1, hori)
+        Temp_DICE_pulse16 = zeros(1, hori)
+
+        M16[:, 1] = ParaDice16["Initial_M"]
+        M_pulse16[:, 1] = ParaDice16["Initial_M"] .+ [pulse, 0, 0]
+        Tvec16[:, 1] = ParaDice16["Initial_T"]
+        Tvec_pulse16[:, 1] = ParaDice16["Initial_T"]
+        Temp_DICE16[1] = Tvec16[1, 1]
+        Temp_DICE_pulse16[1] = Tvec_pulse16[1, 1]
+    end
+
+    for t = 1:hori - 1
+        # Carbon cycle:
+        # Calculate emissions that keep concentration constant. Equation equivalent to CarbonMatrix*M+E=M.
+        if logic_emission_decay == 0
+            Evec = (diagm(ones(3)) - CarbonMatrix) * M[:, t]
         elseif logic_emission_decay == 1  # carbon cycle already hits current emissions.
-            M[:, t + 1] = CarbonMatrix * (M[:, t] + [E[t], 0, 0])
-            if t == 1
-                M_pulse[:, t] = M[:, t]
-                M_pulse[:, t + 1] = CarbonMatrix * (M[:, t] + [pulse + E[t], 0, 0])
-            else
+            Evec = (diagm(ones(3)) - CarbonMatrix) * M[:, t] / CarbonMatrix[1, 1]
+        end
+
+        # Picking only atmospheric part keeps atm concentration fix, but not ocean (saturates)
+        E = zeros(hori)
+        E[t] = Evec[1]
+        if logic_timing_pulse == 0
+            M[:, t + 1] = CarbonMatrix * M[:, t] + [E[t], 0, 0]
+            M_pulse[:, t + 1] = CarbonMatrix * M_pulse[:, t] + [E[t], 0, 0]
+            elseif logic_timing_pulse == 1  # reset pulse stock in present to baseline stock
+                if logic_emission_decay == 0  # all of pulse appears next period
+                M[:, t + 1] = CarbonMatrix * M[:, t] + [E[t], 0, 0]
+                    if t == 1
+                        M_pulse[:, t] = M[:, t]
+                        M_pulse[:, t + 1] = CarbonMatrix * M[:, t] + [pulse + E[t], 0, 0]
+                    else
+                    M_pulse[:, t + 1] = CarbonMatrix * M_pulse[:, t] + [E[t], 0, 0]
+                end
+            elseif logic_emission_decay == 1  # carbon cycle already hits current emissions.
+                M[:, t + 1] = CarbonMatrix * (M[:, t] + [E[t], 0, 0])
+                    if t == 1
+                        M_pulse[:, t] = M[:, t]
+                        M_pulse[:, t + 1] = CarbonMatrix * (M[:, t] + [pulse + E[t], 0, 0])
+                    else
                 M_pulse[:, t + 1] = CarbonMatrix * (M_pulse[:, t] + [E[t], 0, 0])
             end
         end
@@ -798,9 +879,8 @@ for t = 1:hori - 1
     if logic_ACE_Joos == 1
         Imp = zeros(hori)
         forc_Joos = zeros(hori)
-        # Joos Impulse response: Note that it's already an impulse response model for carbon
+        # Joos Impulse response
         Imp[t + 1] = sum(CarbonMatrixJoos^(t) * CarbonWeights) * pulse
-        # (result is independent of base-concentration by nature of impulse response model)
         forc_Joos[t] = sigma_forc * (M[1, t] + Imp[t + 1]) / Mpre
         tau_Joos[:, t + 1] = TempMatrix * tau_Joos[:, t] + [forc_Joos[t], 0, 0]
         Temp_Joos[:, t + 1] = diagm(1.0 ./ xi) * log.(tau_Joos[:, t + 1])
@@ -809,18 +889,17 @@ for t = 1:hori - 1
     if logic_DICE == 1
         Fback = zeros(hori)
         Fpul = zeros(hori)
-        # Using same M as in ACE-DICE 
-        Fback[t] = ParaDice["eta"] * (log(M[1, t + 1]) - log(ParaDice["Mpre"])) / log(2)  # only needed if using them in Dietz et al for comparison purposes
+        Fback[t] = ParaDice["eta"] * (log(M[1, t + 1]) - log(ParaDice["Mpre"])) / log(2)  
         Tvec[:, t + 1] = [1 0]' * ParaDice["climate_sens"] * ParaDice["sigma_tempDICE"][1] / ParaDice["eta"] * (ParaDice["eta"] * (log(M[1, t + 1]) - log(ParaDice["Mpre"])) / log(2)) + ParaDice["TempDICEMatrix"] * Tvec[:, t]
         Temp_DICE[t + 1] = Tvec[1, t + 1]
-        Fpul[t] = ParaDice["eta"] * (log(M_pulse[1, t + 1]) - log(ParaDice["Mpre"])) / log(2)  # only needed if using them in Dietz et al for comparison purposes
+        Fpul[t] = ParaDice["eta"] * (log(M_pulse[1, t + 1]) - log(ParaDice["Mpre"])) / log(2) 
         Tvec_pulse[:, t + 1] = [1 0]' * ParaDice["climate_sens"] * ParaDice["sigma_tempDICE"][1] / ParaDice["eta"] * (ParaDice["eta"] * (log(M_pulse[1, t + 1]) - log(ParaDice["Mpre"])) / log(2)) + ParaDice["TempDICEMatrix"] * Tvec_pulse[:, t]
         Temp_DICE_pulse[t + 1] = Tvec_pulse[1, t + 1]
     end
     
     if logic_DICE16 == 1 || logic_DICE == 1
         # Carbon cycle:
-        # Calculate emissions that keep concentration constant. Equation equivalent to CarbonMatrix*M+E=M.
+        # Calculate emissions that keep concentration constant.
         if logic_emission_decay == 0
             Evec16 = (diagm(ones(3)) - ParaDice16["CarbonMatrix"]) * M16[:, t]
         elseif logic_emission_decay == 1  # carbon cycle already hits current emissions.
@@ -854,6 +933,7 @@ for t = 1:hori - 1
             error("option for timing not available")
         end
     end
+
     # Temperature evolution
     if logic_DICE16 == 1
         Fback16 = zeros(hori)
@@ -867,43 +947,83 @@ for t = 1:hori - 1
     end
     
 
-end
+    end
 
-if logic_plot == 1
+    if logic_plot == 1
     
-    linewidth = 1.75
-    titlefontsize = 18
+        linewidth = 1.75
+        titlefontsize = 18
 
-    h1 = plot(horizon_legend, Temp_pulse[1, 1:hori] .- Temp[1, 1:hori], linewidth=linewidth, label = "ACE-DICE")
-    if logic_ACE_Joos == 1
-       plot!(horizon_legend, Temp_Joos[1, 1:hori] .- Temp[1, 1:hori], linewidth=linewidth, label = "ACE-Joos")
+        h1 = plot(horizon_legend, Temp_pulse[1, 1:hori] .- Temp[1, 1:hori], linewidth=linewidth, label = "ACE-DICE")
+        if logic_ACE_Joos == 1
+            plot!(horizon_legend, Temp_Joos[1, 1:hori] .- Temp[1, 1:hori], linewidth=linewidth, label = "ACE-Joos")
+        end
+        if logic_DICE == 1
+            plot!(horizon_legend, Temp_DICE_pulse[1, 1:hori] .- Temp_DICE[1, 1:hori], linewidth=linewidth, label = "DICE 2013")
+        end
+        if logic_DICE16 == 1
+            plot!(horizon_legend, Temp_DICE_pulse16[1, 1:hori] .- Temp_DICE16[1, 1:hori], linewidth=linewidth, label = "DICE 2016")
+        end
+        title!("Temperature Impulse Response to $(pulse)GtC", fontsize=titlefontsize)
+        xlabel!("Year")
+        ylabel!("Temperature Diff in C")
+        xticks!(0:20:horizon)
+        savefig(h1, path*"/ImpulseResponse_Temperature_$(pulse)GtC_timestep_$(timestep).pdf")
+    
     end
-    if logic_DICE == 1
-       plot!(horizon_legend, Temp_DICE_pulse[1, 1:hori] .- Temp_DICE[1, 1:hori], linewidth=linewidth, label = "DICE 2013")
-    end
-    if logic_DICE16 == 1
-       plot!(horizon_legend, Temp_DICE_pulse16[1, 1:hori] .- Temp_DICE16[1, 1:hori], linewidth=linewidth, label = "DICE 2016")
-    end
-    title!("Temperature Imp Response to 100GtC", fontsize=titlefontsize)
-    xlabel!("Year")
-    ylabel!("Temperature Diff in C")
-    xticks!(0:20:horizon)
-    #savefig(h1, "ImpulseResponse_Temperature_$(pulse)GtC_timestep_$(timestep).png")
-
-end
 
 end    
 
 ############################################### Figure 4
+"""
+The function below replicates figure 4 in the paper. This figure shows temperature increases (in degree celsius) resulting from 
+    a one-time release of 100 of gigatons of carbon (GtC) across different models.
 
-function figure4()
+The different models are:
+- ACE-DICE ACE using DICE's carbon cycle
+- ACE-Joos ACE using Joos et al. (2013) impulse-response model
+- Dynamic Integrated Climate-Economy (DICE) 2013, 2016
+- Climate Framework for Uncertainty, Negotiation and Distribution (FUND)
+- Policy Analysis of the Greenhouse Effect (PAGE)
+- Coupled Model Intercomparison Project Phase 5 (CMIP5) 3.0 and 3.25 (DPRV)
+- Bern present day (PD)
+- Bern pre-industrial (PI)
+- Transient climate response to cumulative carbon emissions model (TCRE)
+    
+Make sure you have the following dataframes:
+    - impulse_timestep_5_logi_001.mat
+    - impulse_timestep_1_logi_001.mat    
+    - Venmans_CS3_lam_1p06.mat
+    - Impulse_Response_Bern2p5_Joos.mat
+    - Impulse_Response_Bern2p5_PD_Joos.mat
+    - Venmans_CS3p1.mat
+
+*Input:*
+- path: The user should provide their preferred path to save the figure. Otherwise the function takes the current working directory by default.
+- datapath: The user should provide the location of the data needed for the figure (found in replication package). Otherwise the function takes the current working directory as default. 
+    Necessary dataframes are:
+        - impulse_timestep_5_logi_001.mat
+        - impulse_timestep_1_logi_001.mat    
+        - Venmans_CS3_lam_1p06.mat
+        - Impulse_Response_Bern2p5_Joos.mat
+        - Impulse_Response_Bern2p5_PD_Joos.mat
+        - Venmans_CS3p1.mat
+*Syntax:*
+
+```julia
+ACE_Traeger_replication.Impulse_response_combined(path, datapath)
+```
+    
+*Output:*
+- Figure 4 saved into path
+"""
+function Impulse_response_combined(path = pwd(), datapath = pwd())
 
     horizon=210
     pulse = 100
     logic_plot = 1
 
     logi = "001" # 001 is standard timing: pulse added to M0, no emission decay during period, T_t+1(M_t+1), gives same result as 111
-    # logi = 111 # 111 is advanced timing: adds pulse to current emissions and has emissions decay already, T_t+1(M_t+1) 
     
     horizon_cutoff = 160
     logic_ACE_DICE=1 
@@ -922,12 +1042,12 @@ function figure4()
     logic_Bern2p5_Joos_PD = 1
     logic_TCRE = 1
     
-    # Take DICE 2013 and 16 from 5 year time step (scaling of temperature model not working)
+    # Take DICE 2013 and 16 from 5 year time step
     
-    data1 = matread(path*"impulse_timestep_5_logi_$(logi).mat")
+    data1 = matread(datapath*"/impulse_timestep_5_logi_$(logi).mat")
     
-    M13 = data1["M"]  # 5 rather than 10 year time step
-    M_pulse13 = data1["M_pulse"] # 5 rather than 10 year time step"]
+    M13 = data1["M"]
+    M_pulse13 = data1["M_pulse"]
     DICE_horizon = data1["horizon_legend"]
     DICE_Impulse = data1["Temp_DICE_pulse"][1,1:trunc(Int, data1["hori"])]-data1["Temp_DICE"][1,1:trunc(Int, data1["hori"])]
     DICE_Impulse16 = data1["Temp_DICE_pulse16"][1,1:trunc(Int, data1["hori"])]-data1["Temp_DICE16"][1,1:trunc(Int, data1["hori"])]
@@ -937,8 +1057,7 @@ function figure4()
     pulse5y = data1["pulse"]
     
     # Take 1 year time step version of ACE
-    
-    data2 = matread(path*"impulse_timestep_1_logi_$(logi).mat")
+    data2 = matread(datapath*"/impulse_timestep_1_logi_$(logi).mat")
     ACE_horizon1 = data2["horizon_legend"]
     ACE_Impulse_DICE1 = data2["Temp_pulse"][1,1:trunc(Int, data2["hori"])]-reshape(data2["Temp"][1,:,:], 6*39)[1:trunc(Int, data2["hori"])]
     ACE_Impulse_Joos1 = data2["Temp_Joos"][1,1:trunc(Int, data2["hori"])]-reshape(data2["Temp"][1,:,:], 6*39)[1:trunc(Int, data2["hori"])]
@@ -948,11 +1067,11 @@ function figure4()
     end
     
     if logic_VenBest_alt==1
-        Ven = matread(path*"Venmans_CS3_lam_1p06.mat")
+        Ven = matread(datapath*"/Venmans_CS3_lam_1p06.mat")
         JGbest_alt = Ven["Ven"]["JGbest"]
     end 
     
-    data3 = matread(path*"impulse_timestep_1_logi_$(logi).mat")
+    data3 = matread(datapath*"/impulse_timestep_1_logi_$(logi).mat")
     ACE_horizon = data3["horizon_legend"]
     ACE_Impulse_DICE = data3["Temp_pulse"][1,1:trunc(Int, data3["hori"])]-reshape(data3["Temp"][1,:,:], 6*39)[1:trunc(Int, data3["hori"])]
     ACE_Impulse_Joos = data3["Temp_Joos"][1,1:trunc(Int, data3["hori"])]-reshape(data3["Temp"][1,:,:], 6*39)[1:trunc(Int, data3["hori"])]
@@ -961,32 +1080,31 @@ function figure4()
     end
     
     # FROM AR6: 
-    TCRE_best = 1.65*data3["pulse"]/1000;
+    TCRE_best = 1.65*data3["pulse"]/1000
     # likely interval (by guidance notes AR5) 
-    TCRE_high = 2.3*data3["pulse"]/1000;
-    TCRE_low = 1*data3["pulse"]/1000;
+    TCRE_high = 2.3*data3["pulse"]/1000
+    TCRE_low = 1*data3["pulse"]/1000
     
-    if logic_Bern2p5_Joos_PI==1;
-        data4 = matread(path*"Impulse_Response_Bern2p5_Joos.mat")   # preindustrial, by courtesy of Fortunat Joos
+    if logic_Bern2p5_Joos_PI==1
+        data4 = matread(datapath*"/Impulse_Response_Bern2p5_Joos.mat")   # preindustrial, by courtesy of Fortunat Joos
         Impulse_Response_Bern2p5 = data4["Impulse_Response_Bern2p5"][1:201]
         horizon_Bern = 0.5:200.5
     end
     
-    if logic_Bern2p5_Joos_PD==1;
-        data5 = matread(path*"Impulse_Response_Bern2p5_PD_Joos.mat")  # present day, by courtesy of Fortunat Joos
+    if logic_Bern2p5_Joos_PD==1
+        data5 = matread(datapath*"/Impulse_Response_Bern2p5_PD_Joos.mat")  # present day, by courtesy of Fortunat Joos
         Impulse_Response_Bern2p5_PD = data5["Impulse_Response_Bern2p5_Joos"][1:201]
         horizon_Bern = 0.5:200.5
     end
     
-    data6 = matread(path*"Venmans_CS3p1.mat")  # Loads time paths VenBest courtesy of Frank Venmans.
+    data6 = matread(datapath*"/Venmans_CS3p1.mat")  # Loads time paths VenBest courtesy of Frank Venmans.
     
-    
+
     if logic_plot == 1
         
         linewidth = 1.75
         titlefontsize = 18
     
-        #h1 = plot()
         h3 = plot()
         if logic_ACE_Joos == 1
             plot!(0:maximum(ACE_horizon), ACE_Impulse_Joos, linewidth=linewidth, label = "ACE-Joos")
@@ -1024,26 +1142,59 @@ function figure4()
         if logic_VenPAGE ==1
             plot!(0:maximum(vec(Ven["Ven"]["year"])), vec(Ven["Ven"]["PAGE"]), linewidth=linewidth, label = "PAGE")
         end
-        title!("Temperature Imp Response to 100GtC", fontsize=titlefontsize)
+        if logic_TCRE == 1
+            hline!((TCRE_best, TCRE_best), linewidth=linewidth, linestyle=:dot, label = "TCRE-best", color = "black")
+            hline!((TCRE_low, TCRE_low), linewidth=linewidth, linestyle=:dot, label = "TCRE-likely", color = "grey")
+            hline!((TCRE_high, TCRE_high), linewidth=linewidth, linestyle=:dot, color = "grey", label = "")
+        end
+        title!("Temperature Impulse Response to 100GtC", fontsize=titlefontsize)
         xlabel!("Year")
-        ylabel!("Temperature Diff in C")
+        ylabel!("Temperature Difference in C")
         xticks!(0:20:horizon)
-        #savefig(h3, "ImpulseResponse_Temp_Complot_$(pulse)GtC.png")
+        savefig(h3, path*"/ImpulseResponse_Temp_Complot_$(pulse)GtC.pdf")
     
     end
     
 
 end
 
-############################################### Table 5
+###############################################
+
+############################################### TABLE 1 (SCC)
 
 
-function table5()
-    
+"""
+This function replicates Table I of the paper. The table shows the social cost of carbon (SCC) estimates based on a variety of assumptions. 
+It also provides information on the cent per gallon and euro per liter cost of gasoline.
+These assumptions are included in the scenarios and can take the following values:
+ - various annual discount factors (rho).
+ - damages can be calibrated to the DICE model (1) or damages are  calibrated to Howard-Sterner (2017) and Pyndick (2020) models (2)
+ - the scenario can be based on the use of the carbon cycle matrix given by DICE or the carbon cycle matrix given by Joos et al. (2013)
+ - the scenario can include population weighting or not
+ - the scenario can include a capital share in production (kappa) of value 0.3 (stylized fact) or 0.4 (more recent estimates) as well as calibrated ones.
+
+Note that population recalibration is not implemented in this replication, therefore 3 scenarios are missing.
+
+*Input:*
+- path
+
+*Syntax:*
+```julia
+ACE_Traeger_replication.SCC(path)
+```
+
+*Output:*
+- Table 1 saved into path
+"""
+function SCC(path = pwd())
+
+# Initialize globals
 global replicate_table = 1
 global tab = Dict()
 global param = Dict()
 
+
+# Initialize table entries
 tab["scen"] = zeros(40)
 tab["carb_mult"] = zeros(40)
 tab["wo_delay"] = zeros(40)
@@ -1058,48 +1209,49 @@ tab["pop_recalibrate"] = zeros(40)
 tab["kappa"] = zeros(40)
 tab["kappa_calib"] = zeros(40)
 
+# List of scenarios
 global list = Dict()
 
-    list["rho_discount_annual_exo"] = [0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01, 0.01,0.01,0.01,0.01,0.01,0.01, 
+    list["rho_discount_annual_exo"] = [0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01, 0.01,0.01,0.01,0.01, 
                                       0.005,0.005,0.005,0.005,0.005,0.005,0.005,0.005,0.005,0.005,0.005,0.005,0.001,0.001,
                                       0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001]
 
-    list["damages"] = [1, 1, 2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1, 1, 2, 1, 1, 2, 2, 1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 2, 2, 1, 2]
+    list["damages"] = [1, 1, 2, 1, 1, 1, 2, 2, 2, 1, 1, 2, 2, 1, 1, 2, 1, 1, 2, 1, 1, 2, 2, 1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 2, 2, 1, 2]
     
-    list["boxmodel"] = [0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1]
-    list["population"] = [0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1]
-    list["pop_recalibrate"] = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    list["kappa"] = [0.3,  0.3,  0.3,  0.4,  0.4,  0.3,  0.3,  0.4,  0.4,  0.4,  0.4,  0.4,  0.4,  0.4,  0.4,  0.4,  0.3,  0.3,  0.3,  0.4,  0.3,   0.3,  0.4,  0.3,  0.4,  0.3,  0.4,  0.4,  0.3,  0.3,  0.3,  0.4,  0.3,  0.3,  0.4,  0.3,  0.4,  0.3,  0.4,  0.4]
-    list["kappa_calib"] = [0.3,  0.3,  0.3,  0.4,  0.3,  0.3,  0.3,  0.4,  0.4,  0.3,  0.4,  0.4,  0.3,  0.4,  0.4,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3]
+    list["boxmodel"] = [0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1]
+    list["population"] = [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1]
+    list["pop_recalibrate"] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    list["kappa"] = [0.3,  0.3,  0.3,  0.4,  0.4,  0.3,  0.4,  0.4,  0.4,  0.4,  0.4,  0.4,  0.4,  0.3,  0.3,  0.3,  0.4,  0.3,   0.3,  0.4,  0.3,  0.4,  0.3,  0.4,  0.4,  0.3,  0.3,  0.3,  0.4,  0.3,  0.3,  0.4,  0.3,  0.4,  0.3,  0.4,  0.4]
+    list["kappa_calib"] = [0.3,  0.3,  0.3,  0.4,  0.3,  0.3,  0.4,  0.4,  0.3,  0.4,  0.3,  0.4,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3]
 
 
-
+# loop over the different scenarios
 for k in 1:length(list["damages"])
-
+    println("Preparing scerario $k")
     global boxmodel = list["boxmodel"][k]
     global population = list["population"][k]
     global jj = k
 
-# include(jointpath(@__DIR__, "filename.jl"))
-
+    # If scenario uses standard carbon matrix and no population weighting
     if boxmodel == 0 && population == 0
         include(joinpath(@__DIR__, "ACE_SCC_Deterministic_boxmodel0.jl"))
     end
-
+    # If scenario uses standard carbon matrix and population weighting
     if boxmodel == 0 && population == 1
         include(joinpath(@__DIR__, "ACE_SCC_Deterministic_population1_boxmodel0.jl"))
     end
-
+    # If scenario uses Joos carbon matrix and no population weighting
     if boxmodel == 1 && population == 0
         include(joinpath(@__DIR__, "ACE_SCC_Deterministic_boxmodel1.jl"))
     end
-
+    # If scenario uses Joos carbon matrix and population weighting
     if boxmodel == 1 && population == 1
         include(joinpath(@__DIR__, "ACE_SCC_Deterministic_population1_boxmodel1.jl"))
     end
 
 end
 
+# Create data frame in csv and in excel format
 df = DataFrame(Scenario = tab["scen"],
                 rho_discount_annual_exo = tab["rho_discount_annual_exo"],
                 damages = tab["damages"],
@@ -1114,8 +1266,8 @@ df = DataFrame(Scenario = tab["scen"],
                 Gallon = tab["cent_gallon"], 
                 liter = tab["cent_liter"])
 display(df)
-CSV.write("output.csv", df)
-XLSX.writetable("output.xlsx", collect(DataFrames.eachcol(df)), DataFrames.names(df))
+CSV.write(path*"/output.csv", df)
+XLSX.writetable(path*"/output.xlsx", collect(DataFrames.eachcol(df)), DataFrames.names(df))
 
 end
 

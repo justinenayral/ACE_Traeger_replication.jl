@@ -1,26 +1,11 @@
 # ACE_SCC_Deterministic.jl
-# Last edited CT 2021 (created CT 2014 merging earlier files)
-#
 # Calculates deterministic shadow values and SCC for ACE model
-# - calls TMDynamics.jl to initialize Climate Dynamics
-# - if using boxmodel calls Joos_decay_boxes.jl 
-# - if using population weighting with time preference recalibration calls
-#      CalibrateBetaPopulation.jl
-#
 
-    #For DICE: get the xi0
-    function xi0DICE(initial_guess::Vector, a, matchtemp, T=2.5)
-        function xi0solve_DICE!(F, xi0)
-            F[1] = 1 / (1 + a * matchtemp^2) - exp(-xi0[1] * exp(xi1 * matchtemp) + xi0[1])
-        end
-        result = nlsolve(xi0solve_DICE!, initial_guess) # Solve the equation using NLsolve
-        x = result.zero[1] # Extract the solution
-        return x
-    end
 
 # MAIN SETTINGS
 
 cs=3
+xi1 = 0.23104906018 * 3 / cs
 Mpre=596.4
 param = Dict()
 param["xi"] = [0.231049060186648, 0.231049060186648, 0.231049060186648]
@@ -30,25 +15,20 @@ TempMatrix = [0.000000027559817 0.461805697411481 0;
               0.076519839162246 0.895993627259103 0.027486533578651;
               0 0.003992679633153 0.996007320366847]
 
-#Testing for possible mistakes/incompatibility
 param_xi1= log(2) / cs #Approximately 0.23, temperature trafo parameter
 
 if param_xi1-param["xi"][1]>1e-10
     print("Inconsistency with xi1 definition, check underlying cs")
 end
 
-#RCP 6 2015 values for possible initialization (not required for paper):
 Initial = Dict("Temperature" => [0.98901461, 0.73635941, 0.73635941],
                "tau" => [1.256727218547292, 1.185465055669960, 1.185465055669960],
                "M" => [818.985, 1527, 10010])
 
-#Testing equilibrium temperature increase of given specification:
 tau_eq_vec =(Matrix(1.0I, length(Initial["Temperature"]), length(Initial["Temperature"]))-TempMatrix)^(-1)*2*[sigma_temp_up[1]; zeros(length(Initial["Temperature"])-1)]
-#and translating back into temperature in degree Celsius:
 T_eq_vec=log.(tau_eq_vec)./param["xi"]
-print("Test of long-run equilibrium Temp at 2xCO2", round.(Int, T_eq_vec))
 
-##Carbon Dynamics ##########Redo with parameters !!!!!
+##Carbon Dynamics
 
 #Parameters Carbon Cycle Matrix
 sigma_carb = [0.088, 0.0025, 0.03832888889, 3.3750e-04]  # DICE
@@ -89,10 +69,17 @@ switch_damvar = 0
     # Implied factors:
     param["beta_exo"]=exp(-param["rho_discount_annual_exo"]*param["timestep"]);
 
+    function xi0DICE(initial_guess::Vector, a, matchtemp, T=2.5)
+        function xi0solve_DICE!(F, xi0)
+            F[1] = 1 / (1 + a * matchtemp^2) - exp(-xi0[1] * exp(xi1 * matchtemp) + xi0[1])
+        end
+        result = nlsolve(xi0solve_DICE!, initial_guess) # Solve the equation using NLsolve
+        x = result.zero[1] # Extract the solution
+        return x
+    end
 
     # Solve for damage coefficient
     param["xi0"] = xi0DICE([0.0], a_Nord, matchtemp)
-    println("Using cs=$(cs), xi1=$(param["xi"][1]), matching xi0=$(param["xi0"])")
 
     if switch_damvar == 1
         param["xi0"] *= dam_fact
@@ -127,9 +114,8 @@ switch_damvar = 0
         param["rho"][i] = -1 / param["timestep"] * log(param["beta"][i]) # putting rho's into list for loop
     end
 
-    println("Matched quadratic damage coefficient of $a_Nord at $matchtemp degree Celsius")
-    println("DETERMINISTIC MODEL OUTPUT (for different calibrations): ")
-    
+
+    # Initialization
         phi = Dict()
         phi_NoTempLag = Dict()
         phi["k"] = zeros(3)
@@ -192,7 +178,7 @@ switch_damvar = 0
     phi["M_immediate_forc"][i, :] = param["beta"][i] * sigma_temp_up[1] * phi["tau"][i, 1] / Mpre * CarbonMatrix[1, :]' * PsiM[:,:]
     phi["M_immediate_forc_tot"][i, :] = phi["M_immediate_forc"][i, :] .+ sigma_temp_up[1] / Mpre * phi["tau"][i, 1]
     
-
+    # SCC calculation based on population weighting
     if population == 1
         growth_pop_factor = pop[2:end] ./ pop[1:end-1]
         growth_pop_rate = growth_pop_factor .- 1
@@ -200,7 +186,7 @@ switch_damvar = 0
         # Initialize year 2100
         phi["k_pop"][i, length(growth_pop_factor) + 1, :] .= phi["k"][i]
         phi["tau_pop"][i, length(growth_pop_factor) + 1, :] .= phi["tau"][i, :]
-        phi_NoTempLag["tau_pop"][i, length(growth_pop_factor) + 1, :] .= phi["tau"][i, :] # Initialization doesn't matter for phi.tau (overwrite)
+        phi_NoTempLag["tau_pop"][i, length(growth_pop_factor) + 1, :] .= phi["tau"][i, :]
         
 
             # Initialize shadow value with 2100 stationary values
@@ -208,10 +194,10 @@ switch_damvar = 0
             phi["M_pop"][i, length(growth_pop_factor) + 1, :] .= phi["M_pop_help"][i, length(growth_pop_factor) + 1, :]
             phi_NoTempLag["M_pop_help"][i, length(growth_pop_factor) + 1, :] .= phi_NoTempLag["M"][i, :]
             phi_NoTempLag["M_pop"][i, length(growth_pop_factor) + 1, :] .= phi_NoTempLag["M_pop_help"][i, length(growth_pop_factor) + 1, :]
-            Vec = [1; zeros(2)] # only atm carbon contributes forcing
+            Vec = [1; zeros(2)]
         
     
-        # Loop works backwards taking 2100 as eql values calculated above w/o population growth
+        
         for lind = length(growth_pop_factor):-1:1
             phi["k_pop"][i, lind, 1] = param["kappa"] + param["beta"][i] * growth_pop_factor[lind] * param["kappa"] * phi["k_pop"][i, lind+1, 1]
             phi["tau_pop"][i, lind, :] = param["beta"][i] * growth_pop_factor[lind] * transpose(phi["tau_pop"][i, lind+1, :]) * TempMatrix -
@@ -278,62 +264,6 @@ switch_damvar = 0
         end
         
 
-    # Decomposition terms:
-    println(" Case: ", jj, " - implied annual rho ", round(param["rho"][i] * 100, digits=2), "%")
-    println("  Varphi_k (utility shadow value of capital) ", round(phi["k"][i], digits=5))
-    # Next two lines merged back in from older version that was probably fixed in parallel:
-    println("  Varphi_tau (utility shadow value generalized temperature) ", round.(phi["tau"][i, :], digits=5))
-    println("  Varphi_M (utility shadow value carbon) ", round.(phi["M"][i, :], digits=5))
-    println(" SCC year 2020: ", round(SCC_inC[i], digits=5), " & in CO2: ", round(SCC_inC[i] / (44 / 12), digits=5), ". Decomposing: ")
-    println("    beta 10Y/Mpre= ", round(param["beta"][i] * 10 * param["Y"] / (Mpre * 10^9), digits=5), " & in CO2: ", round(param["beta"][i] * param["Y"] / (Mpre * 10^9) / (44 / 12) * 10, digits=5), ".")
-    println("    damage parameter xi0 ", round(param["xi0"], digits=5))
-    println("    beta 10Y/Mpre*xi0= ", round(param["beta"][i] * 10 * param["Y"] / (Mpre * 10^9) * param["xi0"], digits=5), " & in CO2: ", round(param["beta"][i] * param["Y"] / (Mpre * 10^9) * param["xi0"] / (44 / 12) * 10, digits=5))
-    println("   Base: beta 10C/(1-beta*kappa)/Mpre*xi0= ", round(param["beta"][i] * C[i] / (1 - param["beta"][i] * param["kappa"]) / (Mpre * 10^9) * param["xi0"], digits=5), " & in CO2: ", round(param["beta"][i] * C[i] / (1 - param["beta"][i] * param["kappa"]) / (Mpre * 10^9) * param["xi0"] / (44 / 12), digits=5))
-    println("    sigma^forc ", round(sigma_temp_up[1], digits=5))
-    println("    PsiM_{1,1} contribution ", round(PsiM[1, 1], digits=5))
-    println("    PsiTau_{1,1} contribution ", round(PsiTau[1, 1], digits=5))
-    println(" SCC w/o temp delay (cut sigma Matrix and sig^forc): ", round(SCC_inC_NoTempLag[i], digits=5), " & in CO2 : ", round(SCC_inC_NoTempLag[i] / (44 / 12), digits=5))
-    println(" PERCENT of orignal tax if ignoring carbon dynamics ", round(100 / (PsiM[1, 1]), digits=5))
-    println("")
-
-    println("Inv rate ", round(1 - x[1], digits=3), ";  rho exog,  SCC in CO2: ", 
-    round.(SCC_inCO2_15[1,:], digits=4), " USD | ", round(SCC_gall[1], digits=4), 
-    " cents per gallon; ", round(SCC_lit[1], digits=4), " EUR-cents per liter; and ", 
-    round.(SCC_inC[1,:], digits=4), " in C; rptp: ", round(param["rho"][1] * 100), "%")
-
-    println("Inv rate ", round(1 - x[3], digits=3), " in 2020 IMF, SCC in CO2: ", 
-    round.(SCC_inCO2_15[3,:], digits=4), " USD | ", round(SCC_gall[3], digits=4), 
-    " cents per gallon; ", round(SCC_lit[3], digits=4), " EUR-cents per liter; and ", 
-    round.(SCC_inC[3,:], digits=4), " in C; rptp: ",round(param["rho"][3] * 100), "%")
-
-    println("    with M_t+1 forcing in T_t+1: ", round(beta_implied20 * SCC_inCO2_immediate_forc_tot[3,1], digits=4), 
-    " USD | only phi_M carbon part: ", round(beta_implied20 * SCC_inCO2_immediate_forc[3,1], digits=4), " USD ")
-
-    println("    with 1st step emission decay and M_t+1 forc T_t+1: SCC in CO2: ", 
-    round(SCC_inCO2_15_edec[3,1], digits=4), " USD | more digits: ", 
-    round(SCC_inCO2_15_edec[3,1], digits=10), " USD ")
-
-
-    if population == 1
-        println(" Including popuation weighting and UN population growth (until 2020 then stable) ")
-        println("UN decadal growth 2020 until 2100 in %: ", round.(growth_pop_rate .* 100, digits=2))
-        
-        println(" Inv rate ", round.(1 - x_pop[1,1], digits=3), ";  rho exog,  SCC in CO2: ", 
-                round.(SCC_inCO2_pop[1,:], digits=4), " USD | ", round.(SCC_gall_pop[1,:], digits=4), 
-                " cents per gallon; ", round.(SCC_lit_pop[1,:], digits=4), " EUR-cents per liter; and ", 
-                round.(SCC_inC_pop[1,:], digits=4), "  in C; rptp: ", round.(param["rho"][1] * 100), "%")
-    
-        println(" Inv rate ", round.(1 - x_pop[3,1], digits=3), " in 2020 IMF, SCC in CO2: ", 
-               round.(SCC_inCO2_pop[3,:], digits=4), " USD | ", round.(SCC_gall_pop[3,:], digits=4), 
-                " cents per gallon; ", round.(SCC_lit_pop[3,:], digits=4), " EUR-cents per liter; and ", 
-                round.(SCC_inC_pop[3,:], digits=4), " in C; rptp: ", round.(param["rho"][3] * 100), "%")
-    
-        println("     SCC w/o temp delay for the 3 scenarios: ", round(SCC_inCO2_NoTempLag_pop[1,1], digits=3), 
-                " USD/tCO2, ", round(SCC_inCO2_NoTempLag_pop[2,1], digits=3), " USD/tCO2, ", 
-                round(SCC_inCO2_NoTempLag_pop[3,1], digits=3), " USD/tCO2")
-    
-    end
-        
 # Save information for table (if in table replication scenario)
 if replicate_table == 1
     if (param["rho_discount_annual_exo"] < 0.006 && i == 1) || (param["rho_discount_annual_exo"] > 0.005 && i == 3)

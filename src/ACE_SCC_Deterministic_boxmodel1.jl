@@ -1,26 +1,12 @@
 # ACE_SCC_Deterministic.jl
-# Last edited CT 2021 (created CT 2014 merging earlier files)
-#
-# Calculates deterministic shadow values and SCC for ACE model
-# - calls TMDynamics.jl to initialize Climate Dynamics
-# - if using boxmodel calls Joos_decay_boxes.jl 
-# - if using population weighting with time preference recalibration calls
-#      CalibrateBetaPopulation.jl
-#
 
-    #For DICE: get the xi0
-    function xi0DICE(initial_guess::Vector, a, matchtemp, T=2.5)
-        function xi0solve_DICE!(F, xi0)
-            F[1] = 1 / (1 + a * matchtemp^2) - exp(-xi0[1] * exp(xi1 * matchtemp) + xi0[1])
-        end
-        result = nlsolve(xi0solve_DICE!, initial_guess) # Solve the equation using NLsolve
-        x = result.zero[1] # Extract the solution
-        return x
-    end
+# Calculates deterministic shadow values and SCC for ACE model
+
 
 # MAIN SETTINGS
 # Fraction staying forever
 a0 = 0.2173
+xi1 = 0.23104906018 * 3 / cs
 
 # Fractions moving into other boxes
 a = [0.2240, 0.2824, 0.2763]
@@ -79,10 +65,17 @@ switch_damvar = 0
     # Implied factors:
     param["beta_exo"]=exp(-param["rho_discount_annual_exo"]*param["timestep"]);
 
+    function xi0DICE(initial_guess::Vector, a, matchtemp, T=2.5)
+        function xi0solve_DICE!(F, xi0)
+            F[1] = 1 / (1 + a * matchtemp^2) - exp(-xi0[1] * exp(xi1 * matchtemp) + xi0[1])
+        end
+        result = nlsolve(xi0solve_DICE!, initial_guess) # Solve the equation using NLsolve
+        x = result.zero[1] # Extract the solution
+        return x
+    end
 
     # Solve for damage coefficient
     param["xi0"] = xi0DICE([0.0], a_Nord, matchtemp)
-    println("Using cs=$(cs), xi1=$(param["xi"][1]), matching xi0=$(param["xi0"])")
 
     if switch_damvar == 1
         param["xi0"] *= dam_fact
@@ -107,9 +100,6 @@ switch_damvar = 0
         param["rho"][i] = -1 / param["timestep"] * log(param["beta"][i]) # putting rho's into list for loop
     end
 
-    println("Matched quadratic damage coefficient of $a_Nord at $matchtemp degree Celsius")
-    println("DETERMINISTIC MODEL OUTPUT (for different calibrations): ")
-    
 
     phi = Dict()
     phi_NoTempLag = Dict()
@@ -139,39 +129,34 @@ switch_damvar = 0
 
 
     for i in (1,3)
+    
     # STATIONARY CASE (no population weighting scenario)
-    # Calculate phi["M"]
+
     phi["k"][i] = param["kappa"] / (1 - param["kappa"] * param["beta"][i])
-    # Below "Psi_sigma" matrix: (1-beta sigma)^-1
+
     PsiTau = inv(diagm(ones(3)) - param["beta"][i] * TempMatrix)
     PsiTau_scen[i, :, :] = PsiTau
     phi["tau"][i, :] = -param["xi0"] * (1 + param["beta"][i] * phi["k"][i]) * PsiTau[1, :]
-    # Below "Psi_Phi" matrix: (1-beta Phi)^-1
+
     PsiM = inv(diagm(ones(4)) - param["beta"][i] * CarbonMatrix) 
     PsiM_scen[i, :, :] = PsiM
 
-
-    # Here first box shadow value does not correspond to emissions shadow value
-    # Code makes SCC first entry of phi.M and then adds box shadow values as additional entries to phi.M
-    # Formula change: first two lines use diagonals diag(PsiM) rather than first row of PsiM to get at shadow value of individual boxes
-    # Shadow value by unweighted(!) box ("virtual reservoir"):
     temp = param["beta"][i] * sigma_temp_up[1] * phi["tau"][i, 1] / Mpre * diag(PsiM)  # for ppm
     temp_edec = param["beta"][i] * sigma_temp_up[1] * phi["tau"][i, 1] / Mpre * PsiM * CarbonMatrix  # for ppm
     temp_NoTempLag = param["beta"][i] * 1 * (-param["xi0"]) * (1 + param["beta"][i] * phi["k"][i]) * 1 / Mpre * diag(PsiM)  # for ppm
-    # First entry: Shadow value of a unit of emission spreading into the different boxes
-    # then: temp' also adds unweighted entries back into phi.M
+
     phi["M"][i, :] = [dot(CarbonWeights,temp); temp]  # Note: temp contains individual box values, first entry is total
     phi["M_edec"][i, :] = [dot(CarbonWeights, ones(1, 4) * temp_edec); diag(temp_edec)]
-    # Individual box's contribution to SCC:
+
     phi["Ebox_contr"][i, :] = CarbonWeights .* temp
     phi["Ebox_contr_perc"][i, :] = CarbonWeights .* temp ./ dot(CarbonWeights, temp) * 100
     CarbBoxMultiplier = CarbonWeights' * diag(PsiM)
     Emultiplier = CarbonWeights .* diag(PsiM)
-    # Same for case w/o temperature lag:
+
     phi_NoTempLag["M"][i, :] = [dot(CarbonWeights, temp_NoTempLag); temp_NoTempLag]
     phi_NoTempLag["Ebox_contr"][i, :] = CarbonWeights .* temp_NoTempLag
     phi_NoTempLag["Ebox_contr_perc"][i, :] = CarbonWeights .* temp_NoTempLag ./ dot(CarbonWeights, temp_NoTempLag) * 100
-    # others remain same as with temp-lag: NoTempLag.CarbBoxMultiplier and NoTempLag.Emultiplier
+
     
 
         if use_beta_invrate_parity == 1
@@ -187,35 +172,14 @@ switch_damvar = 0
         SCC_inCO2_15[i, :] = SCC_inC[i, :] / (44 / 12)
     
 
-    # Added in August 21 for timing with M_t+1 in T_t+1
         SCC_inC_edec[i, :] = -phi["M_edec"][i, :] * C[i] / 1e9  # edec = emission decay already over the course of the period
         SCC_inCO2_15_edec[i, :] = SCC_inC_edec[i, :] / (44 / 12)
         SCC_gall[i, 1] = SCC_inCO2_15[i, 1] * 8.78 / 1000 * 100  # 8.78 kgCO2/gallon (and ton->kg, and USD->cent)
         SCC_lit[i, 1] = SCC_gall[i] / 3.78541 * EURperUSD  # 1 gallon = 3.78541 liter
 
-    # Cutting out temperature delay would result in SCC
         SCC_inC_NoTempLag[i, :] = -phi_NoTempLag["M"][i, :] * C[i] / 10^9
         SCC_inCO2_NoTempLag[i, :] .= SCC_inC_NoTempLag[i] / (44 / 12)
 
-
-    # Decomposition terms:
-    println(" Case: ", jj, " - implied annual rho ", round(param["rho"][i] * 100, digits=2), "%")
-    println("  Varphi_k (utility shadow value of capital) ", round(phi["k"][i], digits=5))
-    println("  Varphi_tau (utility shadow value generalized temperature) ", round.(phi["tau"][i, :], digits=5))
-    println("  Varphi_M (utility shadow value carbon) ", round.(phi["M"][i, :], digits=5))
-    println(" SCC year 2020: ", round(SCC_inC[i], digits=5), " & in CO2: ", round(SCC_inC[i] / (44 / 12), digits=5), ". Decomposing: ")
-    println("    beta 10Y/Mpre= ", round(param["beta"][i] * 10 * param["Y"] / (Mpre * 10^9), digits=5), " & in CO2: ", round(param["beta"][i] * param["Y"] / (Mpre * 10^9) / (44 / 12) * 10, digits=5), ".")
-    println("    damage parameter xi0 ", round(param["xi0"], digits=5))
-    println("    beta 10Y/Mpre*xi0= ", round(param["beta"][i] * 10 * param["Y"] / (Mpre * 10^9) * param["xi0"], digits=5), " & in CO2: ", round(param["beta"][i] * param["Y"] / (Mpre * 10^9) * param["xi0"] / (44 / 12) * 10, digits=5))
-    println("   Base: beta 10C/(1-beta*kappa)/Mpre*xi0= ", round(param["beta"][i] * C[i] / (1 - param["beta"][i] * param["kappa"]) / (Mpre * 10^9) * param["xi0"], digits=5), " & in CO2: ", round(param["beta"][i] * C[i] / (1 - param["beta"][i] * param["kappa"]) / (Mpre * 10^9) * param["xi0"] / (44 / 12), digits=5))
-    println("    sigma^forc ", round(sigma_temp_up[1], digits=5))
-    println("    CarbBoxMultiplier contribution =", round(CarbBoxMultiplier, digits=5))
-    println("      with $(round.(Emultiplier, digits=5)) coming from each of the boxes")
-    println("      and individual SCC contributions of $(round.(SCC_inCO2_15[i] / CarbBoxMultiplier * Emultiplier, digits=5)) coming from each of the boxes")
-    println("    PsiTau_{1,1} contribution ", round(PsiTau[1, 1], digits=5))
-    println(" SCC w/o temp delay (cut sigma Matrix and sig^forc): ", round(SCC_inC_NoTempLag[i], digits=5), " & in CO2 : ", round(SCC_inC_NoTempLag[i] / (44 / 12), digits=5))
-    println(" PERCENT of orignal tax if ignoring carbon dynamics ", round(100 / (PsiM[1, 1]), digits=5))
-    println("")
 
 # Save information for table (if in table replication scenario)
 if replicate_table == 1

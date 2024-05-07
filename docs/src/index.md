@@ -1,21 +1,54 @@
-# ACE_Traeger_Replication.jl
+# ACE\_Traeger\_Replication.jl
 
 **Authors**: Norbert Monti, Nayral Justine
 
 
-This package reproduces the findings of Traeger, Christian P. (2023) in his paper titled 'ACE—Analytic Climate Economy,' published in the *American Economic Journal: Economic Policy*, Volume 15, Issue 3, pages 372-406. While the [original replication materials] (https://www.openicpsr.org/openicpsr/project/154141/version/V1/view) provided by the authors were coded in Matlab, we have used Julia to build a replication package, encompassing the main results, Figure II, Figure III, Figure IV, and Table I.
+This package reproduces the findings of Traeger, Christian P. (2023) in his paper titled 'ACE—Analytic Climate Economy,' published in the *American Economic Journal: Economic Policy*, Volume 15, Issue 3, pages 372-406. While the [original replication materials](https://www.openicpsr.org/openicpsr/project/154141/version/V1/view) provided by the author were coded in Matlab, we have used Julia to build a replication package, reproducing the main results, Figure II, Figure III, Figure IV, and Table I.
 
 The paper examines optimal carbon taxation using integrated assessment models (IAMs) of climate change. These models are designed to evaluate the long-term interactions among economic production, greenhouse gas emissions, and global warming. C. Traeger discusses the implications of temperature and carbon tax impact. The persistence of carbon increases the optimal tax twofold to thirtyfold, depending on the calibration. On the contrary, the delay in temperature dynamics (Ocean cooling) decreases the carbon tax from 65 to 25%. The Analytic Climate Economy (ACE) model is close to Nordhaus' DICE model. It incorporates most elements of IAMs. Labor, capital, technology and energy produced output are either consumed or invested. The author distinguish "Dirty" energy sectors, consuming fossil fuels and generating greenhouse gas emissions. These gases accumulate in the atmorsphere causing radiative forcing and increase global temperature, which reduces output. This economic model aims at helping economists to develop more accurate opinions about the social cost of carbon.
+
+## Package installation guide
+
+In order to add ACE_Traeger_Replication.jl take the following steps:
+
+1. Install git. [Here's a handy guide](https://kinsta.com/knowledgebase/install-git/), depending on your OS.
+2. In terminal, go to the folder where you want to save the package locally. Clone the package to your computer:
+
+```
+cd "path/where/you/want/to/save/package"
+git clone https://github.com/justinenayral/ACE_Traeger_replication.jl.git
+```
+3. Start up a julia session and go to the source folder where ACE_Traeger_replication.jl is saved
+```
+cd("path/where/code/is/saved/ACE_Traeger_replication.jl")
+```
+4. Run the module
+```
+include("ACE_Traeger_replication.jl")
+```
+
+## Help
+In case of issues, while running the code just use the ? in the repl, followed by the function's name, to get the help documentation.
+For more information on the underlying code, click on the source button in the relevant section.
 
 ## Data availability
 Our replication packages require downloading the data used by the authors from the orginal [replication package](https://www.openicpsr.org/openicpsr/project/154141/version/V1/view?flag=follow&pageSize=100&sortOrder=(?title)&sortAsc=true).
 
 ## Path
-The user needs to save the data and the julia package in path:
+The user needs to provide a path where figures will be saved:
 ```julia
 path = "C:/Users/..."
 ```
-Figures generated are saved in path:
+Figures generated are saved in path. Otherwise figures will be saved in the current directory.
+
+## Datapath
+To output some certain figures, the data provided in the original replication package is needed. The specific packages necessary are given below.
+The user needs to save the data in datapath:
+```julia
+datapath = "C:/Users/..."
+```
+
+Otherwise function will look for data in the current directory by default.
 
 ## Packages
 Before using the package, it is required to install:
@@ -28,10 +61,10 @@ Pkg.add("DataFrames")
 Pkg.add("CSV")
 Pkg.add("XLSX")
 Pkg.add("NLsolve")
-Pkg.add(("Plots")
+Pkg.add("Plots")
 ```
-## Dammage functions
-The authors used differents definition for calculating environment damages. This section presents the diferent functions the user can use to calculate them, depending of the method he prefers. In case of issues, while running the code just use the ? in the repl, followed by the function's name, to get the documentation.
+## Damage functions
+The authors used differents definition for calculating environmental damages. This section presents the diferent functions the user can use to calculate them, depending of the method prefer. 
 
 #### ACE
 ```@docs
@@ -48,10 +81,13 @@ ACE_Traeger_replication.dam_DICE
 ACE_Traeger_replication.dam_Sterner
 ```
 
-## Figure II
+## Figure II (Damage Function Plot)
 ```@docs
 ACE_Traeger_replication.Damage_function_plot
 ```
+
+*Output:*
+- Figure 2 saved into path
 
 Original figure: 
 ![](figure2or.png)
@@ -60,7 +96,7 @@ The figure generated by our package:
 ![](figure2.png)
 
 
-## Figure III
+## Figure III (Temperature Dynamics Simulation)
 ```@docs
 ACE_Traeger_replication.TempFitSim
 ```
@@ -95,9 +131,3 @@ The figure generated by our package:
 ```@docs
 ACE_Traeger_replication.SCC
 ```
-
-Original table: 
-![](table1or.png)
-
-The table generated by our package: 
-![](table1.png)

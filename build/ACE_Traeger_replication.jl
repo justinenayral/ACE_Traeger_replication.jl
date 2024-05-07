@@ -314,7 +314,7 @@ Make sure you have the following dataframes:
         
 *Syntax:*
 ```julia
-ACE_Traeger_replication.TempFitSim(path)
+ACE_Traeger_replication.TempFitSim(path, datapath)
 ```
         
 *Output:*
