@@ -1,5 +1,5 @@
 push!(LOAD_PATH,"../src/")
-using ACE_Traeger_replication
+#using ACE_Traeger_replication
 using Documenter
 #using DocumenterTools
 makedocs(
@@ -10,7 +10,6 @@ makedocs(
                ],
                format = Documenter.HTML(prettyurls = false)
 )
-
 
 deploydocs(
     repo="github.com:justinenayral/ACE_Traeger_replication.jl.git",
