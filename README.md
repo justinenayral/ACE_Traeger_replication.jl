@@ -64,7 +64,7 @@ Pkg.add("NLsolve")
 Pkg.add("Plots")
 ```
 
-## Dammage functions
+## Damage functions
 The authors used differents definition for calculating environment damages. This section presents the diferent functions the user can use to calculate them, depending of the method he prefers. In case of issues, while running the code just use the ? in the repl, followed by the function's name, to get the documentation.
 
 #### ACE
