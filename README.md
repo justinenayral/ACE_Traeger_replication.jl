@@ -213,7 +213,7 @@ ACE_Traeger_replication.Impulse_response(pulse, path)
 *Output:*
 - figure saved into path
 
-# Figure IV: 
+## Figure IV (Impulse response function combined)
 
 The function below replicates figure 4 in the paper. This figure shows temperature increases (in degree celsius) resulting from 
     a one-time release of 100 of gigatons of carbon (GtC) across different models.
@@ -256,7 +256,7 @@ ACE_Traeger_replication.Impulse_response_combined(path, datapath)
 *Output:*
 - Figure 4 saved into path
 
-# Table I (Social Cost of Carbon estimates)
+## Table I (Social Cost of Carbon estimates)
 This function replicates Table I of the paper. The table shows the social cost of carbon (SCC) estimates based on a variety of assumptions. 
 It also provides information on the cent per gallon and euro per liter cost of gasoline.
 These assumptions are included in the scenarios and can take the following values:
