@@ -45,7 +45,7 @@ ACE_Traeger_replication.dam_DICE(a, T)
 
 *Example*
 ```julia-repl
-julia> ACE_Traeger_replication.DICE(0.0028,3)
+julia> ACE_Traeger_replication.dam_DICE(0.0028,3)
 0.02458056964494726
 ```
 """
@@ -138,7 +138,7 @@ The different models are:
 The left side of the plot refers to the temperature range of the IPCC secenarios in Figure 3 and the right side is focuses on lower degrees of warming. 
     
 *Input:*
-- path
+- path: The user should provide their preferred path to save the figure. Otherwise the function takes the working directory by default.
     
 *Syntax:*
 
@@ -991,23 +991,25 @@ The different models are:
 - Transient climate response to cumulative carbon emissions model (TCRE)
     
 Make sure you have the following dataframes:
-    - impulse_timestep_5_logi_001.mat
-    - impulse_timestep_1_logi_001.mat    
-    - Venmans_CS3_lam_1p06.mat
-    - Impulse_Response_Bern2p5_Joos.mat
-    - Impulse_Response_Bern2p5_PD_Joos.mat
-    - Venmans_CS3p1.mat
+- impulse_timestep_5_logi_001.mat
+- impulse_timestep_1_logi_001.mat    
+- Venmans_CS3_lam_1p06.mat
+- Impulse_Response_Bern2p5_Joos.mat
+- Impulse_Response_Bern2p5_PD_Joos.mat
+- Venmans_CS3p1.mat
 
 *Input:*
 - path: The user should provide their preferred path to save the figure. Otherwise the function takes the current working directory by default.
 - datapath: The user should provide the location of the data needed for the figure (found in replication package). Otherwise the function takes the current working directory as default. 
-    Necessary dataframes are:
-        - impulse_timestep_5_logi_001.mat
-        - impulse_timestep_1_logi_001.mat    
-        - Venmans_CS3_lam_1p06.mat
-        - Impulse_Response_Bern2p5_Joos.mat
-        - Impulse_Response_Bern2p5_PD_Joos.mat
-        - Venmans_CS3p1.mat
+
+*Necessary dataframes are
+- impulse_timestep_5_logi_001.mat
+- impulse_timestep_1_logi_001.mat    
+- Venmans_CS3_lam_1p06.mat
+- Impulse_Response_Bern2p5_Joos.mat
+- Impulse_Response_Bern2p5_PD_Joos.mat
+- Venmans_CS3p1.mat
+
 *Syntax:*
 
 ```julia
@@ -1167,16 +1169,16 @@ end
 This function replicates Table I of the paper. The table shows the social cost of carbon (SCC) estimates based on a variety of assumptions. 
 It also provides information on the cent per gallon and euro per liter cost of gasoline.
 These assumptions are included in the scenarios and can take the following values:
- - various annual discount factors (rho).
- - damages can be calibrated to the DICE model (1) or damages are  calibrated to Howard-Sterner (2017) and Pyndick (2020) models (2)
- - the scenario can be based on the use of the carbon cycle matrix given by DICE or the carbon cycle matrix given by Joos et al. (2013)
- - the scenario can include population weighting or not
- - the scenario can include a capital share in production (kappa) of value 0.3 (stylized fact) or 0.4 (more recent estimates) as well as calibrated ones.
+- various annual discount factors (rho).
+- damages can be calibrated to the DICE model (1) or damages are  calibrated to Howard-Sterner (2017) and Pyndick (2020) models (2)
+- the scenario can be based on the use of the carbon cycle matrix given by DICE or the carbon cycle matrix given by Joos et al. (2013)
+- the scenario can include population weighting or not
+- the scenario can include a capital share in production (kappa) of value 0.3 (stylized fact) or 0.4 (more recent estimates) as well as calibrated ones.
 
 Note that population recalibration is not implemented in this replication, therefore 3 scenarios are missing (original scenarios 7, 12 and 15).
 
 *Input:*
-- path
+- path: The user should provide their preferred path to save the figure. Otherwise the function takes the working directory by default.
 
 *Syntax:*
 ```julia

@@ -9,7 +9,9 @@ This package reproduces the findings of Traeger, Christian P. (2023) in his pape
 The paper examines optimal carbon taxation using integrated assessment models (IAMs) of climate change. These models are designed to evaluate the long-term interactions among economic production, greenhouse gas emissions, and global warming. C. Traeger discusses the implications of temperature and carbon tax impact. The persistence of carbon increases the optimal tax twofold to thirtyfold, depending on the calibration. On the contrary, the delay in temperature dynamics (Ocean cooling) decreases the carbon tax from 65 to 25%. The Analytic Climate Economy (ACE) model is close to Nordhaus' DICE model. It incorporates most elements of IAMs. Labor, capital, technology and energy produced output are either consumed or invested. The author distinguish "Dirty" energy sectors, consuming fossil fuels and generating greenhouse gas emissions. These gases accumulate in the atmorsphere causing radiative forcing and increase global temperature, which reduces output. This economic model aims at helping economists to develop more accurate opinions about the social cost of carbon.
 
 ## Package installation guide
+You can either choose to download the package directly in the terminal or in the julia environment
 
+### In the terminal
 In order to add ACE_Traeger_Replication.jl take the following steps:
 
 1. Install git. [Here's a handy guide](https://kinsta.com/knowledgebase/install-git/), depending on your OS.
@@ -26,6 +28,21 @@ cd("path/where/code/is/saved/ACE_Traeger_replication.jl")
 4. Run the module
 ```
 include("ACE_Traeger_replication.jl")
+```
+
+### In Julia environment
+1. Install the package environment of your julia repl (simply tab ] to access it)
+```julia
+add https://github.com/justinenayral/ACE_Traeger_replication.jl
+```
+2. Run the package (outside the package environment)
+```julia
+using ACE_Traeger_replication
+```
+
+3. Go to your working directory:
+```julia
+cd("where/is/your/working/directory")
 ```
 
 ## Help
@@ -54,8 +71,8 @@ Otherwise function will look for data in the current directory by default.
 Before using the package, it is required to install:
 ```julia
 using Pkg 
-Pkg.add("MAT") #To open .mat datasets
-Pkg.add("Printf") #For labelling graphs
+Pkg.add("MAT")
+Pkg.add("Printf") 
 Pkg.add("LinearAlgebra")
 Pkg.add("DataFrames")
 Pkg.add("CSV")
@@ -134,8 +151,6 @@ julia> ACE_Traeger_replication.dam_Sterner(3)
 0.10305
 ```
 
-*Output:*
-The calculated DICE-Howard-Sterner damage estimate.
 
 ## Figure II (Damage Function Plot)
 The function below replicates original figure II in the paper. This figure shows the predicted damages of different models depending on the temperature degrees above the preindustrial level.
@@ -149,7 +164,7 @@ The different models are:
 The left side of the plot refers to the temperature range of the IPCC secenarios in Figure 3 and the right side is focuses on lower degrees of warming. 
     
 *Input:*
-- path
+- path: The user should provide their preferred path to save the figure. Otherwise the function takes the working directory by default.
     
 *Syntax:*
 
@@ -269,7 +284,7 @@ These assumptions are included in the scenarios and can take the following value
 Note that population recalibration is not implemented in this replication, therefore 3 scenarios are missing (original scenarios 7, 12 and 15).
 
 *Input:*
-- path
+- path: The user should provide their preferred path to save the figure. Otherwise the function takes the working directory by default.
 
 *Syntax:*
 ```julia
