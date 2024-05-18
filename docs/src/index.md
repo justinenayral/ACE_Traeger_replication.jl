@@ -13,33 +13,36 @@ You can either choose to download the package directly in the terminal or in the
 ### In the terminal
 In order to add ACE\_Traeger\_Replication.jl take the following steps:
 
-1. Install git. [Here's a handy guide](https://kinsta.com/knowledgebase/install-git/), depending on your OS.
-2. In terminal, go to the folder where you want to save the package locally. Clone the package to your computer:
+1). Install git. [Here's a handy guide](https://kinsta.com/knowledgebase/install-git/), depending on your OS.
 
+2). In terminal, go to the folder where you want to save the package locally. Clone the package to your computer:
 ```
 cd "path/where/you/want/to/save/package"
 git clone https://github.com/justinenayral/ACE_Traeger_replication.jl.git
 ```
-3. Start up a julia session and go to the source folder where ACE\_Traeger\_replication.jl is saved
+
+3). Start up a julia session and go to the source folder where ACE\_Traeger\_replication.jl is saved
 ```
 cd("path/where/code/is/saved/ACE_Traeger_replication.jl")
 ```
-4. Run the module
+
+4). Run the module
 ```
 include("ACE_Traeger_replication.jl")
 ```
 
 ### In Julia environment
-1. Install the package environment of your julia repl (simply tab ] to access it)
+1). Install the ACE\_Traeger\_replication.jl package in the environment of your julia repl (simply use ] to access it)
 ```julia
 add https://github.com/justinenayral/ACE_Traeger_replication.jl
 ```
-2. Run the package (outside the package environment)
+
+2). Run the package (outside the package environment)
 ```julia
 using ACE_Traeger_replication
 ```
 
-3. Go to your working directory:
+3). Go to your working directory:
 ```julia
 cd("where/is/your/working/directory")
 ```

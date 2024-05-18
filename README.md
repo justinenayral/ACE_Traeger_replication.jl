@@ -31,7 +31,7 @@ include("ACE_Traeger_replication.jl")
 ```
 
 ### In Julia environment
-1. Install the package environment of your julia repl (simply tab ] to access it)
+1. Install the ACE\_Traeger\_replication.jl package in the environment of your julia repl (simply use ] to access it)
 ```julia
 add https://github.com/justinenayral/ACE_Traeger_replication.jl
 ```
