@@ -1,7 +1,7 @@
 name = "ACE_Traeger_replication"
 uuid = "99a73ef8-13ed-4f11-8c53-cbee039a33fc"
 authors = ["Monti Norbert, Nayral Justine"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
