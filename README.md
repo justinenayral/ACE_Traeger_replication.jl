@@ -227,7 +227,7 @@ ACE_Traeger_replication.Impulse_response(pulse, path)
 ```
     
 *Output:*
-- figure saved into path
+- Figure saved into path
 
 ## Figure IV (Impulse response function combined)
 
@@ -246,23 +246,25 @@ The different models are:
 - Transient climate response to cumulative carbon emissions model (TCRE)
     
 Make sure you have the following dataframes:
-    - impulse_timestep_5_logi_001.mat
-    - impulse_timestep_1_logi_001.mat    
-    - Venmans_CS3_lam_1p06.mat
-    - Impulse_Response_Bern2p5_Joos.mat
-    - Impulse_Response_Bern2p5_PD_Joos.mat
-    - Venmans_CS3p1.mat
+- impulse_timestep_5_logi_001.mat
+- impulse_timestep_1_logi_001.mat    
+- Venmans_CS3_lam_1p06.mat
+- Impulse_Response_Bern2p5_Joos.mat
+- Impulse_Response_Bern2p5_PD_Joos.mat
+- Venmans_CS3p1.mat
 
 *Input:*
 - path: The user should provide their preferred path to save the figure. Otherwise the function takes the current working directory by default.
 - datapath: The user should provide the location of the data needed for the figure (found in replication package). Otherwise the function takes the current working directory as default. 
-    Necessary dataframes are:
-        - impulse_timestep_5_logi_001.mat
-        - impulse_timestep_1_logi_001.mat    
-        - Venmans_CS3_lam_1p06.mat
-        - Impulse_Response_Bern2p5_Joos.mat
-        - Impulse_Response_Bern2p5_PD_Joos.mat
-        - Venmans_CS3p1.mat
+
+*Necessary dataframes are:*
+- impulse_timestep_5_logi_001.mat
+- impulse_timestep_1_logi_001.mat    
+- Venmans_CS3_lam_1p06.mat
+- Impulse_Response_Bern2p5_Joos.mat
+- Impulse_Response_Bern2p5_PD_Joos.mat
+- Venmans_CS3p1.mat
+
 *Syntax:*
 
 ```julia
