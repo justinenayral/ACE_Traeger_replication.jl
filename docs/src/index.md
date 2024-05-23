@@ -2,6 +2,7 @@
 
 **Authors**: Norbert Monti, Justine Nayral
 
+This replication exercise is part of the course [Computational Economics](https://floswald.github.io/NumericalMethods/), taught by Florian Oswald at Sciences Po.
 
 This package reproduces the findings of Traeger, Christian P. (2023) in his paper titled 'ACE—Analytic Climate Economy,' published in the *American Economic Journal: Economic Policy*, Volume 15, Issue 3, pages 372-406. While the [original replication materials](https://www.openicpsr.org/openicpsr/project/154141/version/V1/view) provided by the author were coded in Matlab, we have used Julia to build a replication package, reproducing the main results, Figure II, Figure III, Figure IV, and Table I.
 
