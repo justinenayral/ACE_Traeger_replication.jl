@@ -1,15 +1,6 @@
 module ACE_Traeger_replication
 
 
-import MAT
-import Printf
-import LinearAlgebra
-import NLsolve
-import DataFrames
-import Plots
-import CSV
-import XLSX
-
 using MAT
 using Printf
 using LinearAlgebra
@@ -18,6 +9,7 @@ using DataFrames
 using Plots
 using CSV
 using XLSX
+using Test
 
 timestep = 10
 
@@ -54,7 +46,8 @@ function dam_DICE(a, T)
     x=1 .- 1 ./ (1 .+ a.* T.^2)
     return x
 end
-    
+
+
 #For Howard and Sterner(2017): with the default value a, similar as in Sterner
 """
 This damage function is based on Howard and Sterner (2017):
@@ -117,7 +110,7 @@ function dam_ACE(xi0, xi1, T)
     x=1 .- exp.(-xi0 * exp.(xi1 .* T) .+ xi0)
     return x
 end
-    
+
 ##Damage functions: 
 #function squeeze(A::Vector{Float64})
 #    singleton_dims = tuple((d for d in 1:ndims(vec(A)) if size(vec(A), d) == 1)...)

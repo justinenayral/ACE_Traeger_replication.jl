@@ -1,15 +1,6 @@
 module ACE_Traeger_replication
 
 
-import MAT
-import Printf
-import LinearAlgebra
-import NLsolve
-import DataFrames
-import Plots
-import CSV
-import XLSX
-
 using MAT
 using Printf
 using LinearAlgebra
@@ -18,6 +9,7 @@ using DataFrames
 using Plots
 using CSV
 using XLSX
+using Test
 
 timestep = 10
 
