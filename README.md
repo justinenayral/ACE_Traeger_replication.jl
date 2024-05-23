@@ -43,7 +43,7 @@ In order to add ACE_Traeger_Replication.jl take the following steps:
 cd "path/where/you/want/to/save/package"
 git clone https://github.com/justinenayral/ACE_Traeger_replication.jl.git
 ```
-3. Open your julia session and go to the source folder where ACE_Traeger_replication.jl is saved
+3. Go to your julia session and go to the source folder where ACE_Traeger_replication.jl is saved
 ```
 cd("path/where/code/is/saved/ACE_Traeger_replication.jl")
 ```

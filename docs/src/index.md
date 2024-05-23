@@ -8,6 +8,27 @@ This package reproduces the findings of Traeger, Christian P. (2023) in his pape
 
 The paper examines optimal carbon taxation using integrated assessment models (IAMs) of climate change. These models are designed to evaluate the long-term interactions among economic production, greenhouse gas emissions, and global warming. C. Traeger discusses the implications of temperature and carbon tax impact. The persistence of carbon increases the optimal tax twofold to thirtyfold, depending on the calibration. On the contrary, the delay in temperature dynamics (Ocean cooling) decreases the carbon tax from 65 to 25%. The Analytic Climate Economy (ACE) model is close to Nordhaus' DICE model. It incorporates most elements of IAMs. Labor, capital, technology and energy produced output are either consumed or invested. The author distinguish "Dirty" energy sectors, consuming fossil fuels and generating greenhouse gas emissions. These gases accumulate in the atmorsphere causing radiative forcing and increase global temperature, which reduces output. This economic model aims at helping economists to develop more accurate opinions about the social cost of carbon.
 
+## Data availability
+Our replication packages require downloading the data used by the authors from the original [replication package](https://www.openicpsr.org/openicpsr/project/154141/version/V1/view?flag=follow&pageSize=100&sortOrder=(?title)&sortAsc=true).
+
+Open a new Julia session in the REPL.
+
+## Path
+The user needs to provide a path where figures will be saved:
+```julia
+path = "C:/Users/..."
+```
+Figures generated are saved in path. Otherwise figures will be saved in the current directory.
+
+## Datapath
+To output some certain figures, the data provided in the original replication package is needed. The specific packages necessary are given below.
+The user needs to save the data in datapath:
+```julia
+datapath = "C:/Users/..."
+```
+
+Otherwise function will look for data in the current directory by default.
+
 ## Package installation guide
 You can either choose to download the package directly in the terminal or in the julia environment
 
@@ -22,7 +43,7 @@ cd "path/where/you/want/to/save/package"
 git clone https://github.com/justinenayral/ACE_Traeger_replication.jl.git
 ```
 
-3). Start up a julia session and go to the source folder where ACE\_Traeger\_replication.jl is saved
+3). Go to your julia session and go to the source folder where ACE\_Traeger\_replication.jl is saved
 ```
 cd("path/where/code/is/saved/ACE_Traeger_replication.jl")
 ```
@@ -51,25 +72,6 @@ cd("where/is/your/working/directory")
 ## Help
 In case of issues, while running the code just use the ? in the repl, followed by the function's name, to get the help documentation.
 For more information on the underlying code, click on the source button in the relevant section.
-
-## Data availability
-Our replication packages require downloading the data used by the authors from the original [replication package](https://www.openicpsr.org/openicpsr/project/154141/version/V1/view?flag=follow&pageSize=100&sortOrder=(?title)&sortAsc=true).
-
-## Path
-The user needs to provide a path where figures will be saved:
-```julia
-path = "C:/Users/..."
-```
-Figures generated are saved in path. Otherwise figures will be saved in the current directory.
-
-## Datapath
-To output some certain figures, the data provided in the original replication package is needed. The specific packages necessary are given below.
-The user needs to save the data in datapath:
-```julia
-datapath = "C:/Users/..."
-```
-
-Otherwise function will look for data in the current directory by default.
 
 ## Packages
 Before using the package, it is required to install:
